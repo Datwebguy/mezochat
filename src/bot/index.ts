@@ -21,8 +21,37 @@ const HELP = `Things you can say:
 • pay 800 to @landlord on the 1st if ratio > 160
 • buy amazon 50
 • set alert 160 · alerts on/off
+Or type / to pick a command.
 • activity
 • /connect to link a new wallet`;
+
+/** Slash commands: shown in Telegram's "/" menu. Usage is the hint sent when the command has no details. */
+const COMMANDS: { command: string; description: string; usage?: string }[] = [
+  { command: "balance", description: "MUSD balance and Trove ratio" },
+  { command: "health", description: "Collateral, debt and ratio details" },
+  { command: "send", description: "Send MUSD", usage: "/send 25 to @alice" },
+  { command: "request", description: "Request MUSD", usage: "/request 40 from @bob" },
+  { command: "split", description: "Split a bill", usage: "/split 120 with @alice @bob" },
+  { command: "pay", description: "Ratio-gated recurring payment", usage: "/pay 800 to @landlord on the 1st if ratio > 160" },
+  { command: "buy", description: "Spend via Mezo Market / Bitrefill", usage: "/buy amazon 50" },
+  { command: "activity", description: "Recent receipts and actions" },
+  { command: "alert", description: "Set your safety threshold", usage: "/alert 160   (or /alert on, /alert off)" },
+  { command: "connect", description: "Link a different wallet" },
+  { command: "help", description: "What I can do" },
+  { command: "start", description: "Get started" },
+];
+
+/** "/send@MezoChat_Bot 25 to @alice" -> "send 25 to @alice"; returns a usage hint when details are missing. */
+export function fromSlash(text: string): { text: string } | { usage: string } | null {
+  const m = text.match(/^\/([a-z]+)(?:@\w+)?\s*(.*)$/i);
+  if (!m) return null;
+  const cmd = m[1].toLowerCase(), args = m[2].trim();
+  const def = COMMANDS.find(c => c.command === cmd);
+  if (!def) return null;
+  if (def.usage && !args) return { usage: `${def.description}. Example:\n${def.usage}` };
+  if (cmd === "alert") return { text: /^(on|off)$/i.test(args) ? `alerts ${args}` : `set alert ${args}` };
+  return { text: `${cmd} ${args}`.trim() };
+}
 
 const kb = (bs?: Button[]) => {
   if (!bs?.length) return undefined;
@@ -112,7 +141,14 @@ export function createBot() {
 
     const me = store.user(id);
     if (!me) return startConnect(id);
-    const order = /^help$/i.test(text) ? null : parseOrder(text);
+    let input = text;
+    if (text.startsWith("/")) {
+      const sl = fromSlash(text);
+      if (!sl) return ctx.reply(HELP);
+      if ("usage" in sl) return ctx.reply(sl.usage);
+      input = sl.text;
+    }
+    const order = /^help$/i.test(input) ? null : parseOrder(input);
     if (!order) return ctx.reply(HELP);
     try { await send(ctx.chat.id, await run(me, order)); }
     catch (e) { await ctx.reply(`Couldn't reach Mezo right now: ${(e as Error).message}`); }
@@ -164,11 +200,7 @@ export function createBot() {
     }
   };
 
-  const setup = () => bot.api.setMyCommands([
-    { command: "start", description: "Connect wallet and claim a handle" },
-    { command: "connect", description: "Link a different wallet" },
-    { command: "help", description: "What I can do" },
-  ]).catch(e => console.error("setMyCommands failed", e));
+  const setup = () => bot.api.setMyCommands(COMMANDS.map(({ command, description }) => ({ command, description }))).catch(e => console.error("setMyCommands failed", e));
 
   return { bot, tick, hooks, setup };
 }
