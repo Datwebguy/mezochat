@@ -36,3 +36,9 @@ export const config = {
   dataFile: process.env.DATA_FILE ?? "data/db.json",
   defaultThreshold: 150,
 };
+
+/** Public https URL of this service (e.g. Railway domain). Enables in-wallet signing pages. */
+export const web = {
+  publicUrl: (process.env.PUBLIC_URL ?? "").replace(/\/$/, ""),
+  port: Number(process.env.PORT ?? 3000),
+};

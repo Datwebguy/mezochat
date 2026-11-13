@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from "
 import { dirname } from "node:path";
 import { config } from "../config.js";
 
-export interface User { telegramId: number; handle: string; address: string; threshold: number; alerts: boolean; }
+export interface User { telegramId: number; handle: string; address: string; threshold: number; alerts: boolean; verified?: boolean; }
 export interface Activity { id: string; ts: number; telegramId: number; kind: string; amount?: string; counterparty?: string; ratio?: number | null; tx?: string; note?: string; }
 export interface Request { id: string; from: number; to: number; amount: string; status: "open" | "paid" | "declined"; }
 export interface Split { id: string; owner: number; total: string; shares: { handle: string; amount: string; paid: boolean }[]; }
@@ -36,7 +36,7 @@ export const store = {
   byHandle(handle: string): User | undefined {
     load(); const id = db.handles[normalizeHandle(handle)]; return id ? db.users[id] : undefined;
   },
-  register(telegramId: number, handle: string, address: string): { ok: true } | { ok: false; reason: string } {
+  register(telegramId: number, handle: string, address: string, verified = false): { ok: true } | { ok: false; reason: string } {
     load();
     const h = normalizeHandle(handle);
     if (!HANDLE_RE.test(h)) return { ok: false, reason: "Handles are 3-32 chars: letters, numbers, underscore, starting with a letter." };
@@ -44,11 +44,14 @@ export const store = {
     const prev = db.users[telegramId];
     if (prev) delete db.handles[prev.handle];
     db.handles[h] = telegramId;
-    db.users[telegramId] = { telegramId, handle: h, address, threshold: prev?.threshold ?? config.defaultThreshold, alerts: prev?.alerts ?? true };
+    db.users[telegramId] = { telegramId, handle: h, address, threshold: prev?.threshold ?? config.defaultThreshold, alerts: prev?.alerts ?? true, verified: verified || (prev?.address === address && !!prev?.verified) };
     save(); return { ok: true };
   },
   update(telegramId: number, patch: Partial<Pick<User, "threshold" | "alerts">>) {
     load(); const u = db.users[telegramId]; if (u) { Object.assign(u, patch); save(); }
+  },
+  setAddress(telegramId: number, address: string, verified: boolean) {
+    load(); const u = db.users[telegramId]; if (u) { u.address = address; u.verified = verified; save(); }
   },
   log(a: Omit<Activity, "id" | "ts">) { load(); db.activity.push({ id: uid(), ts: Date.now(), ...a }); save(); },
   recent(telegramId: number, sinceMs = 7 * 864e5, limit = 10) {

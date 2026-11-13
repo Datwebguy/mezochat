@@ -3,8 +3,17 @@ import { ratioGate, fmtRatio } from "../agent/safety.js";
 import type { Order } from "../agent/parse.js";
 import { buildTransfer, getBalance, getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { store, normalizeHandle, type User } from "../registry/store.js";
+import { web } from "../config.js";
+import { createSession } from "../web/sessions.js";
 
-export interface Button { text: string; data: string }
+/** Links to the signer page: direct (desktop / wallet browsers) and via MetaMask mobile. */
+export function signButtons(sessionId: string, label: string): Button[] {
+  const path = `/app?s=${sessionId}`;
+  const host = web.publicUrl.replace(/^https?:\/\//, "");
+  return [{ text: label, url: `https://metamask.app.link/dapp/${host}${path}` }, { text: "Open in browser", url: web.publicUrl + path }];
+}
+
+export interface Button { text: string; data?: string; url?: string }
 export interface Reply { text: string; buttons?: Button[]; notify?: { telegramId: number; text: string; buttons?: Button[] }[] }
 
 /** Short-lived confirmations (Telegram callback data is limited to 64 bytes). */
@@ -25,18 +34,23 @@ function resolve(target: string): { address: Address; label: string; user?: User
 }
 
 /** Pay flow shared by send / request-pay / split-pay / recurring. Gate first, then the user signs in their wallet. */
-export async function payFlow(me: User, to: Address, label: string, amount: string, kind: string, extra?: () => void): Promise<Reply> {
+export async function payFlow(me: User, to: Address, label: string, amount: string, kind: string, split?: { id: string; handle: string }): Promise<Reply> {
   const gate = await ratioGate(me);
   if (!gate.ok) {
     store.log({ telegramId: me.telegramId, kind: `${kind}_refused`, amount, counterparty: label, ratio: gate.ratio });
     return { text: `✗ Not sent. ${gate.reason}\nAdd collateral or repay debt, or lower your threshold with "set alert N".` };
   }
+  const action = kind === "send" ? "Send" : kind === "split" ? "Split share" : kind === "recurring" ? "Recurring payment" : "Payment";
+  if (web.publicUrl) {
+    const s = createSession({ kind: "pay", telegramId: me.telegramId, to, label, amount, action, ratio: gate.ratio, split });
+    return { text: `${action}: ${amount} MUSD → ${label}\nRatio ${fmtRatio(gate.ratio)} ✓\nTap to sign in your wallet. I'll post the receipt when it confirms.`,
+      buttons: signButtons(s.id, `Sign ${amount} MUSD`) };
+  }
+  // Fallback when no public URL is configured: EIP-681 link + manual tx hash.
   const t = buildTransfer(to, amount);
   store.log({ telegramId: me.telegramId, kind, amount, counterparty: label, ratio: gate.ratio, tx: "pending signature" });
-  extra?.();
-  return {
-    text: `${receipt(kind === "send" ? "Send" : "Payment", amount, label, gate.ratio, "pending signature")}\n\nSign it in your wallet: ${t.walletLink}\nAfter it confirms, reply: tx 0x…`,
-  };
+  if (split) store.markShare(split.id, split.handle);
+  return { text: `${receipt(action, amount, label, gate.ratio, "pending signature")}\n\nSign it in your wallet: ${t.walletLink}\nAfter it confirms, reply: tx 0x…` };
 }
 
 export async function run(me: User, order: Order): Promise<Reply> {
