@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard, Keyboard } from "grammy";
 import { isAddress, type Address } from "viem";
 import { parseOrder } from "../agent/parse.js";
+import { aiParse } from "../agent/ai.js";
 import { ratioGate, fmtRatio } from "../agent/safety.js";
 import { labelFor, payFlow, pending, receipt, run, signButtons, type Button, type Reply } from "../commands/index.js";
 import { config, web } from "../config.js";
@@ -169,8 +170,14 @@ export function createBot() {
       if ("usage" in sl) return ctx.reply(sl.usage);
       input = sl.text;
     }
-    const order = /^help$/i.test(input) ? null : parseOrder(input);
+    let order = /^help$/i.test(input) ? null : parseOrder(input);
     if (!order) return ctx.reply(HELP);
+    if (order.t === "unknown") {
+      await ctx.replyWithChatAction("typing").catch(() => {});
+      const ai = await aiParse(input);
+      if (ai && "reply" in ai) return ctx.reply(ai.reply);
+      if (ai) order = ai.order;
+    }
     try { await send(ctx.chat.id, await run(me, order)); }
     catch (e) { await ctx.reply(`Couldn't reach Mezo right now: ${(e as Error).message}`); }
   });
