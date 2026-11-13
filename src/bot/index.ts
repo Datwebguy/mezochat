@@ -48,7 +48,7 @@ export function createBot() {
     onboarding.set(id, { s: "address" });
     return bot.api.sendMessage(id,
       "Connect your wallet: tap below and sign a free message to prove it's yours. I never hold your keys.\nOr paste an address (0x…) for read-only use.",
-      { reply_markup: kb(signButtons(s.id, "Connect in MetaMask")) });
+      { reply_markup: kb(signButtons(s.id, "Connect wallet")) });
   };
 
   bot.command("start", async ctx => {

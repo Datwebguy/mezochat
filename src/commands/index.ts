@@ -6,11 +6,9 @@ import { store, normalizeHandle, type User } from "../registry/store.js";
 import { web } from "../config.js";
 import { createSession } from "../web/sessions.js";
 
-/** Links to the signer page: direct (desktop / wallet browsers) and via MetaMask mobile. */
+/** One button that opens the signer page; the page then offers MetaMask, Trust, Coinbase, OKX or any wallet browser. */
 export function signButtons(sessionId: string, label: string): Button[] {
-  const path = `/app?s=${sessionId}`;
-  const host = web.publicUrl.replace(/^https?:\/\//, "");
-  return [{ text: label, url: `https://metamask.app.link/dapp/${host}${path}` }, { text: "Open in browser", url: web.publicUrl + path }];
+  return [{ text: label, url: `${web.publicUrl}/app?s=${sessionId}` }];
 }
 
 export interface Button { text: string; data?: string; url?: string }

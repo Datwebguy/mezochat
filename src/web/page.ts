@@ -28,8 +28,15 @@ async function load(){
   $("summary").textContent=S.kind==="verify"?"Prove you own this wallet by signing a message. No funds move and it costs nothing.":S.summary;
   if(!window.ethereum){
     $("go").style.display="none";
-    $("summary").textContent+="\\n\\nNo wallet found in this browser.";
-    $("open").innerHTML='<a class="btn" href="https://metamask.app.link/dapp/'+location.host+location.pathname+location.search+'">Open in MetaMask</a>';
+    $("summary").textContent+="\\n\\nTo continue, open this page in your wallet app.";
+    const full=location.href, enc=encodeURIComponent(full), hp=location.host+location.pathname+location.search;
+    const wallets=[["MetaMask","https://metamask.app.link/dapp/"+hp],["Trust Wallet","https://link.trustwallet.com/open_url?coin_id=60&url="+enc],
+      ["Coinbase Wallet","https://go.cb-w.com/dapp?cb_url="+enc],["OKX Wallet","okx://wallet/dapp/url?dappUrl="+enc]];
+    $("summary").textContent+=" Pick your wallet:";
+    $("open").innerHTML=wallets.map(w=>'<a class="btn" href="'+w[1]+'">Open in '+w[0]+'</a>').join("")+
+      '<button id="copy" style="background:transparent;color:var(--fg);border:1px solid var(--muted)">Other wallet: copy link</button>'+
+      '<div class="muted" style="margin-top:8px">For other wallets (Rabby, Bitget, Rainbow…), copy the link and paste it into your wallet’s built-in browser.</div>';
+    $("copy").onclick=async()=>{try{await navigator.clipboard.writeText(full);status("Link copied.");}catch{prompt("Copy this link",full);}};
     return;
   }
   $("go").textContent=S.kind==="verify"?"Connect & sign":"Connect & pay "+S.amount+" MUSD";$("go").disabled=false;
