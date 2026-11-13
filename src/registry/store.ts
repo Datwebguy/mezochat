@@ -65,6 +65,12 @@ export const store = {
   getSplit(id: string) { load(); return db.splits.find(s => s.id === id); },
   markShare(id: string, handle: string) { load(); const s = db.splits.find(x => x.id === id); const sh = s?.shares.find(x => x.handle === normalizeHandle(handle)); if (sh) { sh.paid = true; save(); } return s; },
   addRecurring(r: Omit<Recurring, "id">) { load(); const x: Recurring = { id: uid(), ...r }; db.recurring.push(x); save(); return x; },
+  recurringOf(owner: number) { load(); return db.recurring.filter(r => r.owner === owner); },
+  removeRecurring(id: string, owner: number) {
+    load(); const i = db.recurring.findIndex(r => r.id === id && r.owner === owner);
+    if (i < 0) return undefined; const [r] = db.recurring.splice(i, 1); save(); return r;
+  },
+  splitsOf(owner: number, limit = 5) { load(); return db.splits.filter(s => s.owner === owner).slice(-limit).reverse(); },
   allRecurring() { load(); return db.recurring; },
   markRan(id: string, date: string) { load(); const r = db.recurring.find(x => x.id === id); if (r) { r.lastRun = date; save(); } },
   allUsers() { load(); return Object.values(db.users); },

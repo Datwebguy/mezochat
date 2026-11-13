@@ -2,7 +2,7 @@ import { Bot, InlineKeyboard, Keyboard } from "grammy";
 import { isAddress, type Address } from "viem";
 import { parseOrder } from "../agent/parse.js";
 import { ratioGate, fmtRatio } from "../agent/safety.js";
-import { payFlow, pending, receipt, run, signButtons, type Button, type Reply } from "../commands/index.js";
+import { labelFor, payFlow, pending, receipt, run, signButtons, type Button, type Reply } from "../commands/index.js";
 import { config, web } from "../config.js";
 import { txUrl } from "../mezo/client.js";
 import { store, normalizeHandle } from "../registry/store.js";
@@ -23,6 +23,8 @@ const HELP = `Things you can say:
 • set alert 160 · alerts on/off
 Or type / to pick a command.
 • activity
+• recurring · cancel 1
+• splits
 • /connect to link a new wallet`;
 
 /** Slash commands: shown in Telegram's "/" menu. Usage is the hint sent when the command has no details. */
@@ -35,6 +37,8 @@ const COMMANDS: { command: string; description: string; usage?: string }[] = [
   { command: "pay", description: "Ratio-gated recurring payment", usage: "/pay 800 to @landlord on the 1st if ratio > 160" },
   { command: "buy", description: "Spend via Mezo Market / Bitrefill", usage: "/buy amazon 50" },
   { command: "activity", description: "Recent receipts and actions" },
+  { command: "recurring", description: "List or cancel recurring payments" },
+  { command: "splits", description: "Who has paid your splits" },
   { command: "alert", description: "Set your safety threshold", usage: "/alert 160   (or /alert on, /alert off)" },
   { command: "connect", description: "Link a different wallet" },
   { command: "help", description: "What I can do" },
@@ -111,6 +115,23 @@ export function createBot() {
         const owner = store.allUsers().find(u => u.telegramId === r.from)!;
         return send(ctx.chat!.id, await payFlow(me, owner.address as Address, `@${owner.handle}`, r.amount, "send"));
       }
+      if (kind === "rcancel") {
+        const r = store.removeRecurring(a, me.telegramId);
+        if (!r) return ctx.editMessageText("Already cancelled.");
+        store.log({ telegramId: me.telegramId, kind: "recurring_cancelled", amount: r.amount, counterparty: labelFor(r.to) });
+        return ctx.reply(`✓ Cancelled: ${r.amount} MUSD → ${labelFor(r.to)} on day ${r.day}.`);
+      }
+      if (kind === "nudge") {
+        const sp = store.getSplit(a);
+        if (!sp || sp.owner !== me.telegramId) return;
+        const unpaid = sp.shares.filter(x => !x.paid);
+        for (const sh of unpaid) {
+          const u = store.byHandle(sh.handle); if (!u) continue;
+          await bot.api.sendMessage(u.telegramId, `Reminder from @${me.handle}: your share of the ${sp.total} MUSD split is ${sh.amount} MUSD.`,
+            { reply_markup: kb([{ text: `Pay ${sh.amount}`, data: `splitpay:${sp.id}:${sh.handle}` }]) }).catch(() => {});
+        }
+        return ctx.reply(unpaid.length ? `Nudged ${unpaid.map(x => "@" + x.handle).join(", ")}.` : "Everyone has paid.");
+      }
       if (kind === "splitpay") {
         const sp = store.getSplit(a);
         const share = sp?.shares.find(x => x.handle === normalizeHandle(b));
@@ -168,7 +189,13 @@ export function createBot() {
       if (!ok) { await bot.api.sendMessage(s.telegramId, `✗ ${s.action} of ${s.amount} MUSD to ${s.label} did not go through: ${reason}\n${txUrl(hash)}`); return; }
       const me = store.user(s.telegramId)!;
       store.log({ telegramId: s.telegramId, kind: s.action.toLowerCase().replace(/ /g, "_"), amount: s.amount, counterparty: s.label, ratio: s.ratio, tx: hash });
-      if (s.split) store.markShare(s.split.id, s.split.handle);
+      if (s.split) {
+        const sp = store.markShare(s.split.id, s.split.handle);
+        if (sp) {
+          const left = sp.shares.filter(x => !x.paid).length;
+          await bot.api.sendMessage(sp.owner, `✓ @${s.split.handle} paid their ${s.amount} MUSD share. ${left ? left + " still to pay." : "Split fully settled 🎉"}`).catch(() => {});
+        }
+      }
       await bot.api.sendMessage(s.telegramId, `${receipt(s.action, s.amount, s.label, s.ratio, hash)}\n${txUrl(hash)}`);
       const recipient = store.allUsers().find(u => u.address.toLowerCase() === s.to.toLowerCase());
       if (recipient && recipient.telegramId !== s.telegramId)
@@ -200,7 +227,15 @@ export function createBot() {
     }
   };
 
-  const setup = () => bot.api.setMyCommands(COMMANDS.map(({ command, description }) => ({ command, description }))).catch(e => console.error("setMyCommands failed", e));
+  const setup = async () => {
+    await bot.api.setMyShortDescription("Your MUSD bank inside Telegram. Send, split, spend, with Trove safety checks.").catch(e => console.error(e));
+    await bot.api.setMyDescription(
+      "MezoChat is Telegram-native banking for MUSD on Mezo.\n\n" +
+      "• Check your balance and live Trove health\n• Send or request MUSD by @handle\n• Split bills\n" +
+      "• Recurring payments that only run if your collateral ratio is safe\n• Spend via Mezo Market\n\n" +
+      "Non-custodial: you sign every payment in your own wallet. Tap Start to connect.").catch(e => console.error(e));
+    return bot.api.setMyCommands(COMMANDS.map(({ command, description }) => ({ command, description }))).catch(e => console.error("setMyCommands failed", e));
+  };
 
   return { bot, tick, hooks, setup };
 }

@@ -24,6 +24,12 @@ const valid = (a: string) => num(a) > 0 && Number.isFinite(num(a));
 export const receipt = (action: string, amount: string, who: string, ratio: number | null, tx: string) =>
   `✓ ${action}\nAmount: ${amount} MUSD\nTo/From: ${who}\nRatio at time: ${fmtRatio(ratio)}\nTx: ${tx}`;
 
+/** "@alice" if the address belongs to a user, else a short 0x label. */
+export function labelFor(address: string) {
+  const u = store.allUsers().find(x => x.address.toLowerCase() === address.toLowerCase());
+  return u ? `@${u.handle}` : `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
 /** Resolve @handle or 0x address. */
 function resolve(target: string): { address: Address; label: string; user?: User } | null {
   if (isAddress(target)) return { address: target, label: `${target.slice(0, 6)}…${target.slice(-4)}` };
@@ -106,6 +112,29 @@ export async function run(me: User, order: Order): Promise<Reply> {
       if (!g.ok) return { text: `✗ ${g.reason}` };
       store.log({ telegramId: me.telegramId, kind: "spend", amount: order.amount, counterparty: order.item, ratio: g.ratio, tx: "guided" });
       return { text: `Ratio ${fmtRatio(g.ratio)} is fine to spend.\nBuy ${order.item} ${order.amount}: open Mezo Market, choose the Bitrefill balance, pay ${order.amount} MUSD, then redeem on Bitrefill.\nhttps://mezo.org/market\nI can't automate this step yet, so I've logged it as guided.` };
+    }
+    case "recurringList": {
+      const rs = store.recurringOf(me.telegramId);
+      if (!rs.length) return { text: 'No recurring payments. Set one with:\n/pay 800 to @landlord on the 1st if ratio > 160' };
+      return { text: "Your recurring payments:\n" + rs.map((r, i) => `${i + 1}. ${r.amount} MUSD → ${labelFor(r.to)} on day ${r.day}, only if ratio > ${r.minRatio}%${r.lastRun ? ` (last ${r.lastRun})` : ""}`).join("\n"),
+        buttons: rs.map((r, i) => ({ text: `Cancel #${i + 1}`, data: `rcancel:${r.id}` })) };
+    }
+    case "recurringCancel": {
+      const r = store.recurringOf(me.telegramId)[order.n - 1];
+      if (!r) return { text: `No recurring payment #${order.n}. Send /recurring to see the list.` };
+      store.removeRecurring(r.id, me.telegramId);
+      store.log({ telegramId: me.telegramId, kind: "recurring_cancelled", amount: r.amount, counterparty: labelFor(r.to) });
+      return { text: `✓ Cancelled: ${r.amount} MUSD → ${labelFor(r.to)} on day ${r.day}.` };
+    }
+    case "splits": {
+      const sp = store.splitsOf(me.telegramId);
+      if (!sp.length) return { text: "No splits yet. Try /split 120 with @alice @bob" };
+      const lines = sp.map(x => {
+        const paid = x.shares.filter(s => s.paid).length;
+        return `${x.total} MUSD · ${paid}/${x.shares.length} paid\n` + x.shares.map(s => `   ${s.paid ? "✓" : "…"} @${s.handle} ${s.amount}`).join("\n");
+      });
+      const open = sp.filter(x => x.shares.some(s => !s.paid));
+      return { text: lines.join("\n\n"), buttons: open.map(x => ({ text: `Nudge (${x.total} split)`, data: `nudge:${x.id}` })) };
     }
     case "activity": {
       const items = store.recent(me.telegramId);
