@@ -16,7 +16,8 @@ const onboarding = new Map<number, Step>();
 
 const MENU = new Keyboard().text("Balance").text("Health").row().text("Activity").text("Help").resized().persistent();
 const HELP = `Things you can say:
-• balance / health
+• balance: your MUSD, BTC and MEZO
+• health: Trove collateral and ratio
 • send 25 to @alice
 • request 40 from @bob
 • split 120 with @alice @bob
@@ -33,7 +34,7 @@ Or type / to pick a command.
 
 /** Slash commands: shown in Telegram's "/" menu. Usage is the hint sent when the command has no details. */
 const COMMANDS: { command: string; description: string; usage?: string }[] = [
-  { command: "balance", description: "MUSD, BTC and MEZO balances + Trove ratio" },
+  { command: "balance", description: "Check your MUSD, BTC and MEZO balances" },
   { command: "health", description: "Collateral, debt and ratio details" },
   { command: "send", description: "Send MUSD", usage: "/send 25 to @alice" },
   { command: "request", description: "Request MUSD", usage: "/request 40 from @bob" },
