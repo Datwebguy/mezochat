@@ -13,5 +13,7 @@ test("parses core orders", () => {
   assert.deepEqual(parseOrder("Don't let me spend if my ratio drops under 170"), { t: "alerts", threshold: 170 });
   assert.deepEqual(parseOrder("set alert 150"), { t: "alerts", threshold: 150 });
   assert.deepEqual(parseOrder("whois @alice"), { t: "whois", who: "@alice" });
+  assert.equal(parseOrder("buy").t, "spend");
+  assert.equal(parseOrder("gift cards").t, "spend");
   assert.equal(parseOrder("gibberish").t, "unknown");
 });

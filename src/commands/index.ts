@@ -5,6 +5,7 @@ import { buildTransfer, getWallet, getTroveHealth, publicClient, txUrl } from ".
 import { store, normalizeHandle, type User } from "../registry/store.js";
 import { config, web } from "../config.js";
 import { registryReadable, resolveOnChain } from "../mezo/registry.js";
+import { catalog, storeAddress } from "../mezo/market.js";
 import { createSession } from "../web/sessions.js";
 
 /** One button that opens the signer page; the page then offers MetaMask, Trust, Coinbase, OKX or any wallet browser. */
@@ -130,10 +131,16 @@ export async function run(me: User, order: Order): Promise<Reply> {
       return { text: `Recurring set. On day ${order.day} each month I'll check your Trove ratio. If it's above ${order.minRatio}% I'll prompt you to sign ${order.amount} MUSD to ${r.label}. If not, I'll alert you and skip.` };
     }
     case "spend": {
+      // Live Mezo Market catalog from the Store contract; buying happens in the Mini App wallet.
+      const items = storeAddress() ? await catalog() : [];
+      const marketUrl = config.network === "testnet" ? "https://testnet.mezo.org/market" : "https://mezo.org/market";
+      if (!items.length) return { text: `Mezo Market isn't connected on ${config.chain.name} in MezoChat yet. You can shop at ${marketUrl} (on a computer; Mezo's site doesn't support phones yet).` };
       const g = await ratioGate(me);
-      if (!g.ok) return { text: `✗ ${g.reason}` };
-      store.log({ telegramId: me.telegramId, kind: "spend", amount: order.amount, counterparty: order.item, ratio: g.ratio, tx: "guided" });
-      return { text: `Ratio ${fmtRatio(g.ratio)} is fine to spend.\nBuy ${order.item} ${order.amount}: open Mezo Market, choose the Bitrefill balance, pay ${order.amount} MUSD, then redeem on Bitrefill.\nhttps://mezo.org/market\nI can't automate this step yet, so I've logged it as guided.` };
+      const list = items.map(p => `${p.available ? "•" : "×"} ${p.name}: ${Number(p.priceMusd).toLocaleString("en-US")} MUSD${p.available ? ` (${p.stock} left)` : " (sold out)"}`).join("\n");
+      const head = `🛍 Mezo Market (live from Mezo's Store contract)\n${list}\n\nYour ratio: ${fmtRatio(g.ratio)}${g.ok ? "" : `\n✗ ${g.reason} Spending is blocked until it's back above your level.`}`;
+      if (me.wallet === "mini" && web.publicUrl)
+        return { text: `${head}\n\nTap to pick an item and pay with your PIN.`, buttons: [{ text: "Open Mezo Market", webApp: `${web.publicUrl}/mini?view=market` }] };
+      return { text: `${head}\n\nBuying inside Telegram needs the MezoChat wallet (/wallet, then import yours). With an external wallet, buy at ${marketUrl} on a computer.` };
     }
     case "recurringList": {
       const rs = store.recurringOf(me.telegramId);

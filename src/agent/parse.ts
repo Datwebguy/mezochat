@@ -44,6 +44,7 @@ export function parseOrder(raw: string): Order {
     if (people.length) return { t: "split", amount: m[1], with: people };
   }
   if ((m = l.match(new RegExp(`^(?:buy|spend) (.+?) ${N}$`)))) return { t: "spend", item: m[1], amount: m[2] };
+  if (/^(buy|market|shop|spend|gift ?cards?)$/.test(l)) return { t: "spend", item: "", amount: "" };
   if ((m = s.match(/^tx (0x[0-9a-fA-F]{64})$/))) return { t: "tx", hash: m[1] };
   return { t: "unknown" };
 }

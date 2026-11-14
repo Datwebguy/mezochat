@@ -5,7 +5,7 @@ const { chromium } = createRequire(import.meta.url)("playwright");
 const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1440, height: 1000 } });
 let all = "";
 p.on("response", async (r: any) => { if (/\.js(\?|$)/.test(r.url())) { try { all += `\n/*@@ ${r.url()} */\n` + await r.text(); } catch {} } });
-await p.goto("https://testnet.mezo.org/market", { waitUntil: "networkidle", timeout: 60000 }).catch(() => {}); await p.waitForTimeout(4000);
+await p.goto(process.argv[3] ?? "https://testnet.mezo.org/market", { waitUntil: "networkidle", timeout: 60000 }).catch(() => {}); await p.waitForTimeout(4000);
 await b.close();
 writeFileSync(process.argv[2], all);
 const show = (label: string, re: RegExp, max = 6, w = 260) => {

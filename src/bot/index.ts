@@ -7,6 +7,7 @@ import { labelFor, payFlow, pending, receipt, run, signButtons, type Button, typ
 import { config, web } from "../config.js";
 import { getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { claimOnChain, registryEnabled } from "../mezo/registry.js";
+import { PRODUCTS, catalog, storeAddress } from "../mezo/market.js";
 import { store, normalizeHandle } from "../registry/store.js";
 import { createSession, verifyMessage, type Session } from "../web/sessions.js";
 import type { WebHooks } from "../web/server.js";
@@ -44,7 +45,7 @@ const COMMANDS: { command: string; description: string; usage?: string }[] = [
   { command: "request", description: "Request MUSD on Mezo from a @username", usage: "/request 40 from @bob" },
   { command: "split", description: "Split a bill in MUSD on Mezo", usage: "/split 120 with @alice @bob" },
   { command: "pay", description: "Recurring MUSD payment, gated by your Mezo Trove ratio", usage: "/pay 800 to @landlord on the 1st if ratio > 160" },
-  { command: "buy", description: "Spend MUSD via Mezo Market / Bitrefill", usage: "/buy amazon 50" },
+  { command: "buy", description: "Mezo Market: gift cards & more, paid in MUSD" },
   { command: "activity", description: "Recent receipts and actions" },
   { command: "recurring", description: "List or cancel recurring payments" },
   { command: "splits", description: "Who has paid your splits" },
@@ -252,6 +253,20 @@ export function createBot() {
       } catch (e) { await bot.api.sendMessage(telegramId, `✗ Borrow didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
     },
     thresholdFor(telegramId) { return store.user(telegramId)?.threshold; },
+    async onMarketTx(telegramId, hash, productId) {
+      const p = PRODUCTS.find(x => x.id === productId);
+      await bot.api.sendMessage(telegramId, `⏳ Buying ${p?.name ?? "item"} on Mezo Market. Waiting for confirmation…`).catch(() => {});
+      try {
+        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: 10 * 60_000 });
+        if (rc.status !== "success") throw new Error("Transaction reverted");
+        const h = await getTroveHealth(rc.from);
+        store.log({ telegramId, kind: "market", counterparty: p?.name, ratio: h.ratio, tx: hash });
+        const claim = config.network === "testnet" ? "testnet.mezo.org/market" : "mezo.org/market";
+        await bot.api.sendMessage(telegramId,
+          `✓ Purchased: ${p?.name ?? `product ${productId}`}\nRatio at time: ${fmtRatio(h.ratio)}\nTx: ${txUrl(hash)}\n\n` +
+          `Your redemption code is issued by Mezo. Mezo doesn't offer a public way for apps to fetch it yet, so open ${claim} on a computer, sign in with this same wallet and open the item to reveal your code, then redeem it at ${p?.redeem ?? "the provider"}.`);
+      } catch (e) { await bot.api.sendMessage(telegramId, `✗ Purchase didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
+    },
     async onTroveTx(telegramId, hash, action, amount) {
       const what = action === "add" ? `Adding ${amount} BTC to your loan` : action === "repay" ? `Repaying ${amount} MUSD` : "Closing your loan";
       await bot.api.sendMessage(telegramId, `⏳ ${what}. Waiting for confirmation…`).catch(() => {});

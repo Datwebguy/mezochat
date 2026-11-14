@@ -139,11 +139,13 @@ async function homeView() {
   <div class="card" id="bal">Loading balances…</div>
   <div class="card hidden" id="loan"></div>
   <button id="borrow">Borrow MUSD</button>
+  <button id="market" class="secondary">🛍 Mezo Market</button>
   <button id="backup" class="secondary">Back up private key</button>
   ${MZ.testnet ? `<a class="btn secondary" href="https://faucet.test.mezo.org" target="_blank">Get testnet BTC</a>` : ""}
   <div id="msg" class="msg"></div>`);
   $("copy").onclick = async () => { try { await navigator.clipboard.writeText(a); msg("Address copied.", "ok"); } catch { msg(a); } };
   $("borrow").onclick = () => borrowView();
+  $("market").onclick = () => marketView();
   $("backup").onclick = () => backupView();
   try {
     const [musd, btc] = await Promise.all([pub.readContract({ address: MZ.musd, abi: erc20, functionName: "balanceOf", args: [a] }), pub.getBalance({ address: a })]);
@@ -312,6 +314,53 @@ async function borrowView() {
   };
 }
 
+async function marketView() {
+  render(`<h1>Mezo Market</h1><p class="muted">Gift cards and more, paid in MUSD. Prices and stock are live from Mezo's Store contract.</p>
+  <div id="items">Loading…</div><button id="back" class="secondary">Back</button>`);
+  $("back").onclick = () => homeView();
+  try {
+    const { items } = await api("/api/market/catalog");
+    if (!items.length) { $("items").innerHTML = `<div class="card">Mezo Market isn't connected on this network yet.</div>`; return; }
+    $("items").innerHTML = items.map((p: any) => `<div class="card item"><div class="row"><b>${esc(p.name)}</b><b>${Number(p.priceMusd).toLocaleString("en-US")} MUSD</b></div>
+      <div class="row muted"><span>${p.available ? `${p.stock} left` : "Sold out"}${p.perCustomerLimit ? ` · limit ${p.perCustomerLimit} per person` : ""}</span><span>Redeem at ${esc(p.redeem)}</span></div>
+      ${p.available ? `<button class="small" data-id="${p.id}">Buy</button>` : ""}</div>`).join("");
+    document.querySelectorAll<HTMLButtonElement>("#items button[data-id]").forEach(b => b.onclick = () => buyView(Number(b.dataset.id)));
+  } catch (e) { $("items").textContent = (e as Error).message; }
+}
+
+async function buyView(productId: number) {
+  render(`<h1>Buy</h1><div class="card" id="sum">Checking…</div>
+  <div class="card">${pinField()}</div><button id="go" disabled>Buy</button><button id="back" class="secondary">Back to market</button><div id="msg" class="msg"></div>`);
+  $("back").onclick = () => marketView();
+  let q: any;
+  try { q = await api(`/api/market/quote?address=${vault!.address}&product=${productId}&tg=${encodeURIComponent(initData)}`); }
+  catch (e) { $("sum").textContent = (e as Error).message; return; }
+  const p = q.product;
+  $("sum").innerHTML = (p ? `<div class="row"><span>Item</span><b>${esc(p.name)}</b></div><div class="row"><span>Price</span><b>${Number(p.priceMusd).toLocaleString("en-US")} MUSD</b></div>` : "") +
+    `<div class="row"><span>Your MUSD</span><b>${Number(q.musdBalance).toLocaleString("en-US", { maximumFractionDigits: 2 })}</b></div>
+     <div class="row"><span>Your ratio</span><b>${q.ratio === null ? "no loan" : q.ratio + "%"}</b></div>` +
+    (q.ok ? `<div class="muted">Steps: ${q.txs.map((t: any, i: number) => `${i + 1}. ${esc(t.label)}`).join(" · ")}</div>` : `<div class="bad">${esc(q.error)}</div>`);
+  const btn = $<HTMLButtonElement>("go"); btn.disabled = !q.ok;
+  btn.onclick = async () => {
+    busy(btn, true, "Signing…"); msg("");
+    try {
+      let last = "" as Hex;
+      for (const [i, t] of q.txs.entries()) {
+        msg(`Step ${i + 1} of ${q.txs.length}: ${t.label}…`);
+        const { hash } = await sendTx($("pin").value, { to: t.to, data: t.data, value: BigInt(t.value) });
+        if (i < q.txs.length - 1) {                       // wait for the approval before ordering
+          const rc = await pub.waitForTransactionReceipt({ hash });
+          if (rc.status !== "success") throw new Error("Approval failed");
+        }
+        last = hash;
+      }
+      await api("/api/mini/market-tx", { initData, txHash: last, productId });
+      render(`<h1>✓ Order sent</h1><p>MezoChat will confirm in the chat and explain how to reveal your code.</p><a class="btn secondary" href="${MZ.explorer}/tx/${last}" target="_blank">View on explorer</a><button id="close">Back to chat</button>`);
+      $("close").onclick = () => tg?.close();
+    } catch (e) { msg((e as Error).message, "err"); busy(btn, false, "Buy"); }
+  };
+}
+
 async function route() {
   const raw = await store.get();
   vault = raw ? JSON.parse(raw) : null;
@@ -320,6 +369,7 @@ async function route() {
   if (sid && /^[0-9a-f]{24}$/.test(sid)) return payView(sid);
   if (params.get("view") === "borrow") return borrowView();
   if (params.get("view") === "loan") return loanView();
+  if (params.get("view") === "market") return marketView();
   return homeView();
 }
 

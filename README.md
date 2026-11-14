@@ -29,7 +29,7 @@ It's non-custodial. The bot never holds keys, and every payment is signed in the
 | **Ratio-gated recurring payments** | `/pay 800 to @landlord on the 1st if ratio > 160`. On the day, it checks the Trove ratio and prompts you to sign, or skips and alerts you. |
 | **Safety gate** | Every send, spend and recurring payment checks the live ratio against your threshold (default 150%) and refuses below it. |
 | **Automatic on-chain receipts** | After you sign, the bot waits for the tx, checks the MUSD `Transfer` log matches the amount and recipient, then posts a receipt and notifies the recipient. |
-| **Spend** | `/buy amazon 50` checks your ratio, then guides you through Mezo Market to Bitrefill. |
+| **Spend (Mezo Market)** | `/buy` shows the live catalog from Mezo's on-chain Store contract. In the Mini App you pick an item; MezoChat checks stock, per-person limits, your MUSD balance and your ratio, then approves MUSD and calls `order(productId)` with your PIN. Mezo issues the redemption code; until Mezo offers a public API for it, users reveal it on Mezo's site. |
 | **Alerts** | Warns when your ratio drops below your threshold and urgently near the 110% liquidation line. |
 | **Natural language** | "yo send bob twenty for lunch" → `send 20 to @bob`. The AI can only produce existing commands, which then go through the same confirmation and safety checks. |
 
@@ -62,7 +62,7 @@ Type `/` in the chat for the menu. Plain sentences work too.
 | `/pay` | `/pay 800 to @landlord on the 1st if ratio > 160` |
 | `/recurring` | List or cancel recurring payments |
 | `/splits` | Who has paid, with nudge buttons |
-| `/buy` | `/buy amazon 50` |
+| `/buy` | Mezo Market: live catalog (prices and stock from Mezo's Store contract). Buy gift cards inside Telegram with the MezoChat wallet. |
 | `/activity` | Last 7 days of receipts |
 | `/alert` | `/alert 160`, `/alert off` |
 | `/faucet` | Testnet only: link to the Mezo Faucet (BTC) and steps to borrow test MUSD on testnet.mezo.org |

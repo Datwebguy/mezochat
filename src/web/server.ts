@@ -8,6 +8,7 @@ import { miniBundle, miniHtml } from "./mini.js";
 import { verifyInitData } from "./telegram.js";
 import { quoteBorrow } from "../mezo/borrow.js";
 import { quoteTrove, type TroveAction } from "../mezo/trove.js";
+import { catalog, quoteBuy } from "../mezo/market.js";
 
 const transferEvent = [{ type: "event", name: "Transfer", inputs: [
   { name: "from", type: "address", indexed: true }, { name: "to", type: "address", indexed: true }, { name: "value", type: "uint256", indexed: false }] }] as const;
@@ -18,6 +19,8 @@ export interface WebHooks {
   onBorrowed?(telegramId: number, hash: Hash, coll: string, debt: string): Promise<void>;
   /** Add BTC / repay / close submitted from the Mini App. */
   onTroveTx?(telegramId: number, hash: Hash, action: "add" | "repay" | "close", amount: string): Promise<void>;
+  /** Mezo Market order submitted from the Mini App. */
+  onMarketTx?(telegramId: number, hash: Hash, productId: number): Promise<void>;
   /** The user's /alert safety threshold in %, if known. */
   thresholdFor?(telegramId: number): number | undefined;
   /** expectedFrom = the user's linked address; null if unknown */
@@ -60,6 +63,22 @@ export function startServer(hooks: WebHooks) {
         const who = verifyInitData(url.searchParams.get("tg") ?? "", config.botToken);
         const threshold = who ? hooks.thresholdFor?.(who.id) : undefined;
         return json(200, await quoteBorrow(a, num("coll"), num("debt"), threshold ?? undefined));
+      }
+      if (req.method === "GET" && url.pathname === "/api/market/catalog") return json(200, { items: await catalog(), network: config.network });
+      if (req.method === "GET" && url.pathname === "/api/market/quote") {
+        const a = url.searchParams.get("address") ?? "", id = Number(url.searchParams.get("product"));
+        if (!isAddress(a) || !Number.isInteger(id)) return json(400, { error: "Bad request" });
+        const who = verifyInitData(url.searchParams.get("tg") ?? "", config.botToken);
+        return json(200, await quoteBuy(a, id, (who && hooks.thresholdFor?.(who.id)) || undefined));
+      }
+      if (req.method === "POST" && url.pathname === "/api/mini/market-tx") {
+        const b = await body(req);
+        const who = verifyInitData(b.initData, config.botToken);
+        if (!who) return json(401, { error: "Open this from the MezoChat bot in Telegram." });
+        if (!isHash(b.txHash) || !Number.isInteger(b.productId)) return json(400, { error: "Bad request" });
+        json(200, { ok: true });
+        hooks.onMarketTx?.(who.id, b.txHash, b.productId).catch(e => console.error("onMarketTx", e));
+        return;
       }
       if (req.method === "GET" && url.pathname === "/api/trove/quote") {
         const a = url.searchParams.get("address") ?? "";
