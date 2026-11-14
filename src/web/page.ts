@@ -22,6 +22,13 @@ const CHAIN={id:${chain.id},hex:"0x"+(${chain.id}).toString(16),name:${JSON.stri
 const sid=new URLSearchParams(location.search).get("s");
 const $=id=>document.getElementById(id);const status=t=>$("status").textContent=t;
 let S;
+const TG="https://t.me/MezoChat_Bot";
+function finished(kind){
+  $("go").style.display="none"; $("open").innerHTML='<a class="btn" href="'+TG+'">Back to Telegram</a>'; status("");
+  $("summary").textContent = kind==="verify" ? "✓ Wallet connected. Go back to Telegram to claim your @handle." : "✓ Payment signed. Your receipt will appear in Telegram once it confirms.";
+}
+/** When this page is open somewhere without a wallet, watch for the signature made in the wallet app. */
+function watch(){ const t=setInterval(async()=>{ try{ const r=await fetch("/api/session/"+sid+"/status"); if(!r.ok) return; const j=await r.json(); if(j.done){clearInterval(t); finished(j.kind);} }catch{} },3000); }
 async function load(){
   const r=await fetch("/api/session/"+sid); if(!r.ok){$("summary").textContent="This link has expired or was already used. Go back to Telegram and send /connect (or repeat your payment) for a fresh link.";return;}
   S=await r.json();
@@ -36,6 +43,7 @@ async function load(){
     $("open").innerHTML=wallets.map(w=>'<a class="btn" href="'+w[1]+'">Open in '+w[0]+'</a>').join("")+
       '<button id="copy" style="background:transparent;color:var(--fg);border:1px solid var(--muted)">Other wallet: copy link</button>'+
       '<div class="muted" style="margin-top:8px">For other wallets (Rabby, Bitget, Rainbow…), copy the link and paste it into your wallet’s built-in browser.</div>';
+    watch();
     $("copy").onclick=async()=>{try{await navigator.clipboard.writeText(full);status("Link copied.");}catch{prompt("Copy this link",full);}};
     return;
   }
@@ -57,13 +65,13 @@ $("go").onclick=async()=>{
       const msg="0x"+Array.from(new TextEncoder().encode(S.message)).map(b=>b.toString(16).padStart(2,"0")).join("");
       const signature=await ethereum.request({method:"personal_sign",params:[msg,from]});
       await post({address:from,signature});
-      status("✓ Wallet linked. Go back to Telegram.");
+      finished("verify");
     } else {
       await ensureChain();
       status("Confirm the payment in your wallet…");
       const hash=await ethereum.request({method:"eth_sendTransaction",params:[{from,to:S.tx.to,data:S.tx.data}]});
       await post({txHash:hash,from});
-      status("✓ Sent. MezoChat will post your receipt once it confirms. You can go back to Telegram.");
+      finished("pay");
     }
   }catch(e){status("✗ "+(e.message||e));$("go").disabled=false;}
 };

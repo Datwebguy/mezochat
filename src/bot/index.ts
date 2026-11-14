@@ -28,6 +28,7 @@ Or type / to pick a command.
 • recurring · cancel 1
 • splits
 • whois @alice
+• faucet: free testnet funds
 • /connect to link a new wallet`;
 
 /** Slash commands: shown in Telegram's "/" menu. Usage is the hint sent when the command has no details. */
@@ -44,6 +45,7 @@ const COMMANDS: { command: string; description: string; usage?: string }[] = [
   { command: "splits", description: "Who has paid your splits" },
   { command: "alert", description: "Set your safety threshold", usage: "/alert 160   (or /alert on, /alert off)" },
   { command: "whois", description: "Look up a @handle's wallet", usage: "/whois @alice" },
+  ...(config.network === "testnet" ? [{ command: "faucet", description: "Get free testnet BTC and MUSD" }] : []),
   { command: "connect", description: "Link a different wallet" },
   { command: "help", description: "What I can do" },
   { command: "start", description: "Get started" },
@@ -93,6 +95,17 @@ export function createBot() {
     await startConnect(ctx.from!.id);
   });
   bot.command("connect", ctx => startConnect(ctx.from!.id));
+  bot.command("faucet", async ctx => {
+    if (config.network !== "testnet") return ctx.reply("The faucet is only for Mezo Testnet.");
+    const me = store.user(ctx.from!.id);
+    const addr = me?.address;
+    await ctx.reply(
+      "Free test funds (Mezo Testnet only, no real value):\n\n" +
+      "1. Testnet BTC: tap the faucet below, paste your address and complete the check. BTC pays gas.\n" +
+      "2. MUSD: open the Mezo testnet app, connect the same wallet, and Borrow MUSD against your testnet BTC.\n" +
+      (addr ? `\nYour address (tap to copy):\n\`${addr}\`` : "\nConnect your wallet first with /connect."),
+      { parse_mode: "Markdown", reply_markup: kb([{ text: "Get testnet BTC", url: "https://faucet.test.mezo.org" }, { text: "Borrow test MUSD", url: "https://testnet.mezo.org" }]) });
+  });
   bot.command("help", ctx => ctx.reply(HELP, { reply_markup: MENU }));
 
   bot.on("callback_query:data", async ctx => {

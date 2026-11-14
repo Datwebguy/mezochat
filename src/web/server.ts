@@ -38,6 +38,11 @@ export function startServer(hooks: WebHooks) {
     try {
       if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health")) return json(200, { ok: true });
       if (req.method === "GET" && url.pathname === "/app") { res.writeHead(200, { "content-type": "text/html; charset=utf-8" }); return res.end(html); }
+      const st = url.pathname.match(/^\/api\/session\/([0-9a-f]{24})\/status$/);
+      if (st && req.method === "GET") {
+        const x = getSession(st[1]);
+        return x ? json(200, { kind: x.kind, done: !!x.done }) : json(404, { error: "Session expired" });
+      }
       const m = url.pathname.match(/^\/api\/session\/([0-9a-f]{24})$/);
       if (!m) return json(404, { error: "Not found" });
       const s = getSession(m[1]);
