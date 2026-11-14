@@ -91,17 +91,36 @@ async function linkWallet(pk: Hex) {
 }
 
 function setupView() {
-  render(`<h1>Create your MezoChat wallet</h1>
-  <p class="muted">Your wallet lives inside Telegram. Choose a PIN; it encrypts your key on this device and in your Telegram cloud. MezoChat never sees your key or PIN.</p>
+  render(`<h1>Your MezoChat wallet</h1>
+  <p class="muted">Your wallet lives inside Telegram. Your key is encrypted with a PIN you choose; MezoChat never sees your key or PIN.</p>
+  <button id="new">✨ Create a new wallet</button>
+  <button id="imp" class="secondary">🔑 Import an existing wallet</button>
+  <p class="muted small-note">Importing keeps your current address and funds. You'll need that wallet's private key (in MetaMask: Account details → Show private key).</p>`);
+  $("new").onclick = () => pinForm(false);
+  $("imp").onclick = () => pinForm(true);
+}
+
+function pinForm(importing: boolean) {
+  render(`<h1>${importing ? "Import your wallet" : "Create your wallet"}</h1>
+  ${importing ? `<div class="card"><label>Private key<input id="pk" type="password" autocomplete="off" placeholder="0x… (64 hex characters)"></label>
+    <p class="muted">It's encrypted on this device with your PIN before it's saved. It's never sent to MezoChat.</p></div>` : ""}
   <div class="card">${pinField("pin", "Choose a PIN")}${pinField("pin2", "Repeat PIN")}</div>
-  <button id="create">Create wallet</button>
-  <details><summary>I already have a private key</summary><div class="card"><label>Private key<input id="pk" type="password" autocomplete="off" placeholder="0x…"></label></div><button id="import" class="secondary">Import with this PIN</button></details>
+  <button id="go">${importing ? "Import wallet" : "Create wallet"}</button>
+  <button id="back" class="secondary">Back</button>
   <div id="msg" class="msg"></div>`);
-  const go = async (pk: Hex | null, btn: HTMLButtonElement) => {
+  $("back").onclick = () => setupView();
+  $("go").onclick = async () => {
+    const btn = $<HTMLButtonElement>("go");
     const pin = $("pin").value, pin2 = $("pin2").value;
+    let pk: Hex | null = null;
+    if (importing) {
+      const raw = $("pk").value.trim();
+      const norm = (/^[0-9a-fA-F]{64}$/.test(raw) ? "0x" + raw : raw) as Hex;   // accept keys with or without 0x
+      if (!/^0x[0-9a-fA-F]{64}$/.test(norm)) return msg("That isn't a valid private key (64 hex characters).", "err");
+      pk = norm;
+    }
     if (!/^\d{6,12}$/.test(pin)) return msg("PIN must be 6-12 digits.", "err");
     if (pin !== pin2) return msg("PINs don't match.", "err");
-    if (pk && !/^0x[0-9a-fA-F]{64}$/.test(pk)) return msg("That isn't a valid private key.", "err");
     busy(btn, true, "Setting up…");
     try {
       const key = pk ?? generatePrivateKey();
@@ -109,10 +128,8 @@ function setupView() {
       await store.set(JSON.stringify(vault));
       await linkWallet(key);
       route();
-    } catch (e) { msg((e as Error).message, "err"); busy(btn, false, pk ? "Import with this PIN" : "Create wallet"); }
+    } catch (e) { msg((e as Error).message, "err"); busy(btn, false, importing ? "Import wallet" : "Create wallet"); }
   };
-  $("create").onclick = () => go(null, $("create") as any);
-  $("import").onclick = () => go($("pk").value.trim() as Hex, $("import") as any);
 }
 
 async function homeView() {

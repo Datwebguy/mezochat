@@ -92,10 +92,10 @@ export function createBot() {
     onboarding.set(id, { s: "address" });
     return bot.api.sendMessage(id,
       "Set up your wallet:\n\n" +
-      "• Create wallet in Telegram: everything happens here. Your key is encrypted with your PIN; MezoChat never sees it.\n" +
-      "• Connect existing wallet: use MetaMask, Trust, OKX and others.\n\n" +
+      "• Wallet in Telegram: create a new one, or import yours with its private key. Everything happens here, and your key is encrypted with your PIN; MezoChat never sees it.\n" +
+      "• Connect existing wallet: keep your key in MetaMask, Trust, OKX and others, and sign in that app.\n\n" +
       "Or paste an address (0x…) for read-only use.",
-      { reply_markup: new InlineKeyboard().webApp("✨ Create wallet in Telegram", miniUrl()).row().url("Connect existing wallet", `${web.publicUrl}/app?s=${s.id}`) });
+      { reply_markup: new InlineKeyboard().webApp("✨ Create or import wallet in Telegram", miniUrl()).row().webApp("Connect existing wallet", `${web.publicUrl}/app?s=${s.id}`) });
   };
 
   bot.command("start", async ctx => {

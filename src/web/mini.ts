@@ -26,7 +26,7 @@ button,.btn{display:block;width:100%;padding:14px;margin-top:10px;border:0;borde
 button:disabled{opacity:.5}.secondary{background:transparent;color:var(--fg);border:1px solid rgba(127,127,127,.4)}.small{padding:8px;font-size:14px}
 .addr{font-family:ui-monospace,monospace;font-size:13px;word-break:break-all}#out{font-family:ui-monospace,monospace;font-size:13px;word-break:break-all}
 .row{display:flex;justify-content:space-between;gap:12px;padding:4px 0}.good{color:#1a8f3c}.warn{color:#c77700}.bad{color:#d0312d}
-.msg{margin-top:12px;font-size:14px}.msg.err{color:#d0312d}.msg.ok{color:#1a8f3c}details{margin-top:16px}summary{color:var(--muted);font-size:14px}
+.small-note{margin-top:12px}.msg{margin-top:12px;font-size:14px}.msg.err{color:#d0312d}.msg.ok{color:#1a8f3c}details{margin-top:16px}summary{color:var(--muted);font-size:14px}
 </style></head><body><div id="app">Loading…</div>
 <script>window.MZ=${JSON.stringify({ chainId: config.chain.id, chainName: config.chain.name, rpc: config.rpcUrl, explorer: config.chain.explorer, musd: config.chain.musd, testnet: config.network === "testnet" })};</script>
 <script type="module" src="/mini.js"></script></body></html>`;
