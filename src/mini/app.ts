@@ -190,27 +190,48 @@ async function payView(sid: string) {
   };
 }
 
-function borrowView() {
-  render(`<h1>Borrow MUSD</h1><p class="muted">Deposit BTC as collateral and borrow MUSD at Mezo's fixed rate. Keep a little BTC for gas.</p>
-  <div class="card"><label>Deposit BTC<input id="coll" inputmode="decimal" value="0.035"></label><label>Borrow MUSD<input id="debt" inputmode="decimal" value="1800"></label></div>
+async function borrowView() {
+  render(`<h1>Borrow MUSD</h1><p class="muted">Deposit BTC as collateral and borrow MUSD at Mezo's fixed rate.</p>
+  <div class="card"><label>Deposit BTC<input id="coll" inputmode="decimal"></label><label>Borrow MUSD<input id="debt" inputmode="decimal"></label>
+  <button id="suggest" class="secondary small">Use safe suggestion</button><div id="note" class="warn small-note hidden"></div></div>
   <div class="card" id="quote">Calculating…</div>
+  <label class="ack hidden" id="ackrow"><input type="checkbox" id="ack"> <span id="acktext"></span></label>
   <div class="card">${pinField()}</div><button id="go" disabled>Borrow</button><button id="back" class="secondary">Back</button><div id="msg" class="msg"></div>`);
   $("back").onclick = () => homeView();
   let q: any = null, t: any;
-  const refresh = () => { clearTimeout(t); t = setTimeout(async () => {
-    try {
-      q = await api(`/api/borrow/quote?address=${vault!.address}&coll=${encodeURIComponent($("coll").value)}&debt=${encodeURIComponent($("debt").value)}`);
-      const n = (x: string, d = 2) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d });
-      $("quote").innerHTML = `<div class="row"><span>Collateral ratio</span><b class="${q.ratio >= 150 ? "good" : q.ratio >= 110 ? "warn" : "bad"}">${q.ratio}%</b></div>
-        <div class="row"><span>Borrowing fee</span><b>${n(q.feeMusd)} MUSD</b></div>
-        <div class="row"><span>Liquidation deposit (refunded)</span><b>${n(q.liquidationDepositMusd)} MUSD</b></div>
-        <div class="row"><span>Total debt</span><b>${n(q.totalDebtMusd)} MUSD</b></div>
-        <div class="row"><span>Liquidated if BTC falls below</span><b>$${n(q.liquidationPrice, 0)}</b></div>
-        ${q.ok ? "" : `<div class="bad">${esc(q.error)}</div>`}`;
-      $<HTMLButtonElement>("go").disabled = !q.ok;
-    } catch (e) { $("quote").textContent = (e as Error).message; $<HTMLButtonElement>("go").disabled = true; }
-  }, 350); };
-  $("coll").oninput = refresh; $("debt").oninput = refresh; refresh();
+  const n = (x: string | number, d = 2) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d });
+  const canGo = () => { $<HTMLButtonElement>("go").disabled = !(q?.ok && (!q.risky || $("ack").checked)); };
+  const show = () => {
+    const cls = q.ratio >= q.safeRatio ? "good" : q.ratio >= q.minRatio ? "warn" : "bad";
+    $("quote").innerHTML = `<div class="row"><span>Collateral ratio</span><b class="${cls}">${q.ratio}%</b></div>
+      <div class="row"><span>BTC price now</span><b>$${n(q.btcPrice, 0)}</b></div>
+      <div class="row"><span>Liquidated if BTC falls below</span><b class="${cls}">$${n(q.liquidationPrice, 0)}</b></div>
+      <div class="row"><span>BTC can drop before liquidation</span><b class="${cls}">${q.dropToLiquidation}%</b></div>
+      <div class="row"><span>Borrowing fee</span><b>${n(q.feeMusd)} MUSD</b></div>
+      <div class="row"><span>Liquidation deposit (refunded)</span><b>${n(q.liquidationDepositMusd)} MUSD</b></div>
+      <div class="row"><span>Total debt</span><b>${n(q.totalDebtMusd)} MUSD</b></div>
+      <div class="muted">Mezo minimum: ${q.minRatio}%${q.recoveryMode ? " (recovery mode)" : ""} · safe: ${q.safeRatio}%+</div>
+      ${q.ok ? "" : `<div class="bad">${esc(q.error)}</div>`}`;
+    const risky = q.ok && q.risky;
+    $("ackrow").classList.toggle("hidden", !risky);
+    if (risky) $("acktext").textContent = `I understand this is below the safe ${q.safeRatio}%. If BTC drops ${q.dropToLiquidation}% (to $${n(q.liquidationPrice, 0)}) my BTC can be liquidated.`;
+    else $("ack").checked = false;
+    canGo();
+  };
+  const fetchQuote = async () => {
+    q = await api(`/api/borrow/quote?address=${vault!.address}&coll=${encodeURIComponent($("coll").value || "0")}&debt=${encodeURIComponent($("debt").value || "0")}`);
+    show();
+  };
+  const refresh = () => { clearTimeout(t); $<HTMLButtonElement>("go").disabled = true; t = setTimeout(() => fetchQuote().catch(e => { $("quote").textContent = (e as Error).message; }), 350); };
+  const applySuggestion = async () => {
+    if (!q) q = await api(`/api/borrow/quote?address=${vault!.address}&coll=0&debt=0`);
+    if (q.suggestion) { $("coll").value = q.suggestion.collateralBtc; $("debt").value = q.suggestion.borrowMusd; }
+    $("note").textContent = q.suggestion?.note ?? ""; $("note").classList.toggle("hidden", !q.suggestion?.note);
+    await fetchQuote();
+  };
+  $("coll").oninput = refresh; $("debt").oninput = refresh; $("ack").onchange = canGo;
+  $("suggest").onclick = () => applySuggestion().catch(e => msg((e as Error).message, "err"));
+  try { await applySuggestion(); } catch (e) { $("quote").textContent = (e as Error).message; }
   $("go").onclick = async () => {
     const btn = $<HTMLButtonElement>("go"); busy(btn, true, "Signing…"); msg("");
     try {
