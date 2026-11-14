@@ -7,6 +7,7 @@ import { page } from "./page.js";
 import { miniBundle, miniHtml } from "./mini.js";
 import { verifyInitData } from "./telegram.js";
 import { quoteBorrow } from "../mezo/borrow.js";
+import { quoteTrove, type TroveAction } from "../mezo/trove.js";
 
 const transferEvent = [{ type: "event", name: "Transfer", inputs: [
   { name: "from", type: "address", indexed: true }, { name: "to", type: "address", indexed: true }, { name: "value", type: "uint256", indexed: false }] }] as const;
@@ -15,6 +16,8 @@ export interface WebHooks {
   onVerified(telegramId: number, address: Address, wallet?: "mini" | "external"): Promise<void>;
   /** In-Telegram borrow submitted; the hook confirms it and reports in chat. */
   onBorrowed?(telegramId: number, hash: Hash, coll: string, debt: string): Promise<void>;
+  /** Add BTC / repay / close submitted from the Mini App. */
+  onTroveTx?(telegramId: number, hash: Hash, action: "add" | "repay" | "close", amount: string): Promise<void>;
   /** The user's /alert safety threshold in %, if known. */
   thresholdFor?(telegramId: number): number | undefined;
   /** expectedFrom = the user's linked address; null if unknown */
@@ -57,6 +60,21 @@ export function startServer(hooks: WebHooks) {
         const who = verifyInitData(url.searchParams.get("tg") ?? "", config.botToken);
         const threshold = who ? hooks.thresholdFor?.(who.id) : undefined;
         return json(200, await quoteBorrow(a, num("coll"), num("debt"), threshold ?? undefined));
+      }
+      if (req.method === "GET" && url.pathname === "/api/trove/quote") {
+        const a = url.searchParams.get("address") ?? "";
+        const action = url.searchParams.get("action") ?? "view";
+        if (!isAddress(a) || !["view", "add", "repay", "close"].includes(action)) return json(400, { error: "Bad request" });
+        return json(200, await quoteTrove(a, action as TroveAction, (url.searchParams.get("amount") ?? "0").trim()));
+      }
+      if (req.method === "POST" && url.pathname === "/api/mini/trove-tx") {
+        const b = await body(req);
+        const who = verifyInitData(b.initData, config.botToken);
+        if (!who) return json(401, { error: "Open this from the MezoChat bot in Telegram." });
+        if (!isHash(b.txHash) || !["add", "repay", "close"].includes(b.action)) return json(400, { error: "Bad request" });
+        json(200, { ok: true });
+        hooks.onTroveTx?.(who.id, b.txHash, b.action, String(b.amount ?? "")).catch(e => console.error("onTroveTx", e));
+        return;
       }
       if (req.method === "POST" && url.pathname === "/api/mini/link") {
         const b = await body(req);

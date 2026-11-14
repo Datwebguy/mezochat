@@ -53,6 +53,7 @@ Type `/` in the chat for the menu. Plain sentences work too.
 |---|---|
 | `/wallet` | Open your in-Telegram wallet |
 | `/borrow` | Borrow MUSD against BTC inside Telegram |
+| `/loan` | Manage your loan inside Telegram: add BTC, repay MUSD, or close and get your BTC back |
 | `/balance` | Your Mezo wallet: MUSD, BTC (gas), MEZO and Trove ratio |
 | `/health` | Collateral, debt, BTC price, ratio |
 | `/send` | `/send 25 to @alice` or `/send 25 to 0x…`. Works with a MezoChat handle, a Telegram @username or a wallet address. |

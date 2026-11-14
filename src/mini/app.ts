@@ -137,6 +137,7 @@ async function homeView() {
   render(`<h1>Your MezoChat wallet</h1><div class="muted">${MZ.chainName}</div>
   <div class="card"><div class="addr" id="addr">${a}</div><button id="copy" class="secondary small">Copy address</button></div>
   <div class="card" id="bal">Loading balances…</div>
+  <div class="card hidden" id="loan"></div>
   <button id="borrow">Borrow MUSD</button>
   <button id="backup" class="secondary">Back up private key</button>
   ${MZ.testnet ? `<a class="btn secondary" href="https://faucet.test.mezo.org" target="_blank">Get testnet BTC</a>` : ""}
@@ -149,6 +150,66 @@ async function homeView() {
     const bal = document.getElementById("bal"); if (!bal) return;   // user already moved to another screen
     bal.innerHTML = `<div class="row"><span>💵 MUSD</span><b>${fmt(musd, 2)}</b></div><div class="row"><span>₿ BTC (gas &amp; collateral)</span><b>${fmt(btc, 6)}</b></div>`;
   } catch { const bal = document.getElementById("bal"); if (bal) bal.textContent = "Couldn't load balances."; }
+  // An open loan replaces the Borrow button (Mezo allows one Trove per wallet).
+  try {
+    const t = await api(`/api/trove/quote?address=${a}&action=view`);
+    const loan = document.getElementById("loan"); if (!loan || !t.hasTrove) return;
+    const cls = t.ratio >= 150 ? "good" : t.ratio >= t.minRatio + 10 ? "warn" : "bad";
+    loan.innerHTML = `<div class="row"><span>Your loan</span><b class="${cls}">${t.ratio}%</b></div>
+      <div class="row"><span>Debt</span><b>${Number(t.debtMusd).toLocaleString("en-US", { maximumFractionDigits: 2 })} MUSD</b></div>
+      <div class="row"><span>Collateral</span><b>${Number(t.collateralBtc).toFixed(6)} BTC</b></div>
+      <button id="manage" class="small">Manage loan</button>`;
+    loan.classList.remove("hidden");
+    $("borrow").classList.add("hidden");
+    $("manage").onclick = () => loanView();
+  } catch { /* loan card is optional */ }
+}
+
+async function loanView(action: "add" | "repay" | "close" = "add") {
+  const a = vault!.address;
+  const labels = { add: "Add BTC", repay: "Repay MUSD", close: "Close loan" } as const;
+  render(`<h1>Your loan</h1><div class="card" id="state">Loading your loan…</div>
+  <div class="tabs">${(["add", "repay", "close"] as const).map(k => `<button id="tab-${k}" class="small ${k === action ? "" : "secondary"}">${labels[k]}</button>`).join("")}</div>
+  <div class="card" id="form">${action === "close" ? `<p class="muted">Repay the whole loan and get your BTC collateral back. The 200 MUSD liquidation deposit is refunded, so you pay the debt minus 200.</p>`
+    : `<label>${action === "add" ? "BTC to add" : "MUSD to repay"}<input id="amt" inputmode="decimal" placeholder="${action === "add" ? "Amount of BTC" : "Amount of MUSD"}"></label>`}</div>
+  <div class="card" id="result"></div>
+  <div class="card">${pinField()}</div><button id="go" disabled>${labels[action]}</button><button id="back" class="secondary">Back</button><div id="msg" class="msg"></div>`);
+  $("back").onclick = () => homeView();
+  for (const k of ["add", "repay", "close"] as const) $(`tab-${k}`).onclick = () => loanView(k);
+  const n = (x: string | number, d = 2) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d });
+  let q: any = null, t: any;
+  const show = () => {
+    $("state").innerHTML = !q.hasTrove ? esc(q.error) : `<div class="row"><span>Collateral</span><b>${n(q.collateralBtc, 6)} BTC</b></div>
+      <div class="row"><span>Debt (incl. 200 MUSD deposit)</span><b>${n(q.debtMusd)} MUSD</b></div>
+      <div class="row"><span>Ratio</span><b>${q.ratio}%</b></div>
+      <div class="row"><span>Liquidated if BTC falls below</span><b>$${n(q.liquidationPrice, 0)}</b></div>
+      <div class="row"><span>Your MUSD</span><b>${n(q.musdBalance)}</b></div>
+      <div class="row"><span>Your BTC</span><b>${n(q.btcBalance, 6)}</b></div>
+      <div class="muted">Repay up to ${n(q.maxRepayMusd)} MUSD · close costs ${n(q.closeCostMusd)} MUSD · Mezo minimum ${q.minRatio}%</div>`;
+    $("result").innerHTML = q.error && q.hasTrove ? `<div class="bad">${esc(q.error)}</div>`
+      : q.ok && q.newRatio !== undefined ? (action === "close"
+        ? `<div class="good">✓ You'll pay ${n(q.closeCostMusd)} MUSD and get back ${n(q.collateralBtc, 6)} BTC.</div>`
+        : `<div class="row"><span>New ratio</span><b class="good">${q.newRatio}%</b></div><div class="row"><span>New debt</span><b>${n(q.newDebtMusd)} MUSD</b></div>
+           <div class="row"><span>New liquidation price</span><b>$${n(q.newLiquidationPrice, 0)}</b></div>`) : "";
+    $<HTMLButtonElement>("go").disabled = !(q.ok && q.tx);
+  };
+  const fetchQ = async () => {
+    const amt = action === "close" ? "0" : (document.getElementById("amt") as HTMLInputElement)?.value || "0";
+    q = await api(`/api/trove/quote?address=${a}&action=${action}&amount=${encodeURIComponent(amt)}`); show();
+  };
+  const amtEl = document.getElementById("amt") as HTMLInputElement | null;
+  if (amtEl) amtEl.oninput = () => { clearTimeout(t); $<HTMLButtonElement>("go").disabled = true; t = setTimeout(() => fetchQ().catch(e => msg((e as Error).message, "err")), 350); };
+  try { await fetchQ(); } catch (e) { $("state").textContent = (e as Error).message; }
+  $("go").onclick = async () => {
+    const btn = $<HTMLButtonElement>("go"); busy(btn, true, "Signing…"); msg("");
+    try {
+      const amount = action === "close" ? "" : amtEl!.value;
+      const { hash } = await sendTx($("pin").value, { to: q.tx.to, data: q.tx.data, value: BigInt(q.tx.value) });
+      await api("/api/mini/trove-tx", { initData, txHash: hash, action, amount });
+      render(`<h1>✓ Submitted</h1><p>MezoChat will confirm in the chat with your new ratio.</p><a class="btn secondary" href="${MZ.explorer}/tx/${hash}" target="_blank">View on explorer</a><button id="close">Back to chat</button>`);
+      $("close").onclick = () => tg?.close();
+    } catch (e) { msg((e as Error).message, "err"); busy(btn, false, labels[action]); }
+  };
 }
 
 function backupView() {
@@ -258,6 +319,7 @@ async function route() {
   const sid = params.get("s");
   if (sid && /^[0-9a-f]{24}$/.test(sid)) return payView(sid);
   if (params.get("view") === "borrow") return borrowView();
+  if (params.get("view") === "loan") return loanView();
   return homeView();
 }
 

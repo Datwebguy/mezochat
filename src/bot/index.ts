@@ -37,6 +37,7 @@ Or type / to pick a command.
 const COMMANDS: { command: string; description: string; usage?: string }[] = [
   { command: "wallet", description: "Your MezoChat wallet inside Telegram" },
   { command: "borrow", description: "Borrow MUSD against BTC, inside Telegram" },
+  { command: "loan", description: "Manage your MUSD loan: add BTC, repay, close" },
   { command: "balance", description: "Your Mezo wallet: MUSD, BTC, MEZO + Trove ratio" },
   { command: "health", description: "Your Mezo Trove: collateral, debt, ratio" },
   { command: "send", description: "Send MUSD on Mezo to a @username or 0x address", usage: "/send 25 to @alice\n/send 25 to 0x1234…abcd" },
@@ -110,6 +111,10 @@ export function createBot() {
     ? ctx.reply("Borrow MUSD against your BTC, right here. You'll see the ratio, fee and liquidation price before you confirm with your PIN.",
         { reply_markup: new InlineKeyboard().webApp("Borrow MUSD", miniUrl("?view=borrow")) })
     : ctx.reply("Borrowing in Telegram isn't enabled on this server."));
+  bot.command("loan", ctx => web.publicUrl
+    ? ctx.reply("Manage your MUSD loan: add BTC to stay safe, repay MUSD, or close it and get your BTC back.",
+        { reply_markup: new InlineKeyboard().webApp("Manage loan", miniUrl("?view=loan")) })
+    : ctx.reply("Loan management in Telegram isn't enabled on this server."));
   bot.command("faucet", async ctx => {
     if (config.network !== "testnet") return ctx.reply("The faucet is only for Mezo Testnet.");
     const me = store.user(ctx.from!.id);
@@ -247,6 +252,19 @@ export function createBot() {
       } catch (e) { await bot.api.sendMessage(telegramId, `✗ Borrow didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
     },
     thresholdFor(telegramId) { return store.user(telegramId)?.threshold; },
+    async onTroveTx(telegramId, hash, action, amount) {
+      const what = action === "add" ? `Adding ${amount} BTC to your loan` : action === "repay" ? `Repaying ${amount} MUSD` : "Closing your loan";
+      await bot.api.sendMessage(telegramId, `⏳ ${what}. Waiting for confirmation…`).catch(() => {});
+      try {
+        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: 10 * 60_000 });
+        if (rc.status !== "success") throw new Error("Transaction reverted");
+        const h = await getTroveHealth(rc.from);
+        store.log({ telegramId, kind: `loan_${action}`, amount: action === "close" ? undefined : amount, ratio: h.ratio, tx: hash });
+        const done = action === "add" ? `✓ Added ${amount} BTC` : action === "repay" ? `✓ Repaid ${amount} MUSD` : "✓ Loan closed. Your BTC collateral is back in your wallet.";
+        const after = action === "close" ? "" : `\nCollateral: ${Number(h.collateralBtc).toFixed(6)} BTC\nDebt: ${Number(h.debtMusd).toFixed(2)} MUSD\nTrove ratio: ${fmtRatio(h.ratio)}`;
+        await bot.api.sendMessage(telegramId, `${done}${after}\nTx: ${txUrl(hash)}`);
+      } catch (e) { await bot.api.sendMessage(telegramId, `✗ That didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
+    },
     expectedFrom(telegramId) { return (store.user(telegramId)?.address as Address) ?? null; },
     async onPaid(s: Extract<Session, { kind: "pay" }>, hash, ok, reason) {
       if (!ok) { await bot.api.sendMessage(s.telegramId, `✗ ${s.action} of ${s.amount} MUSD to ${s.label} did not go through: ${reason}\n${txUrl(hash)}`); return; }
