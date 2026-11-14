@@ -100,6 +100,9 @@ More detail is in [ARCHITECTURE.md](ARCHITECTURE.md), [ORDERS.md](ORDERS.md) and
 | MUSD | `0x118917a40FAF1CD7a13dB0Ef56C86De7973Ac503` |
 | TroveManager | `0xE47c80e8c23f6B4A1aE41c34837a0599D5D16bb0` |
 | PriceFeed | `0x86bCF0841622a5dAC14A313a15f96A95421b9366` |
+| **HandleRegistry** (ours) | [`0xd5c172f90799670de5f05b7506f13d977eccc6b5`](https://explorer.test.mezo.org/address/0xd5c172f90799670de5f05b7506f13d977eccc6b5) |
+
+`HandleRegistry` ([source](contracts/HandleRegistry.sol)) puts @handle → wallet on-chain so anyone can verify who a handle pays. After a user proves wallet ownership by signature, the bot's relayer calls `claimFor`. Users can also `claim` directly. No one, including the relayer, can take a handle that already belongs to someone else.
 
 Mainnet addresses (chain 31612) are in `src/config.ts`. Switch with `MEZO_NETWORK=mainnet`.
 
@@ -121,6 +124,8 @@ TELEGRAM_BOT_TOKEN=... npm start
 | `PORT` | no | Web server port (default 3000) |
 | `DATA_FILE` | no | Data file path (default `data/db.json`) |
 | `OPENAI_API_KEY` | no | Turns on natural-language understanding |
+| `REGISTRY_ADDRESS` | no | Deployed HandleRegistry. Mirrors verified handles on-chain. |
+| `PRIVATE_KEY` | no | Relayer key that pays gas for registry claims (deploy with `scripts/deploy-registry.ts`) |
 
 Tests: `npm test`. Typecheck: `npm run typecheck`.
 
@@ -128,6 +133,6 @@ Tests: `npm test`. Typecheck: `npm run typecheck`.
 
 Live on Mezo Testnet, hosted on Railway.
 
-- [ ] On-chain handle registry contract
+- [x] On-chain handle registry contract (deployed on testnet)
 - [ ] Postgres storage
 - [ ] Mainnet launch
