@@ -3,7 +3,7 @@ import { ratioGate, fmtRatio } from "../agent/safety.js";
 import type { Order } from "../agent/parse.js";
 import { buildTransfer, getWallet, getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { store, normalizeHandle, type User } from "../registry/store.js";
-import { web } from "../config.js";
+import { config, web } from "../config.js";
 import { registryReadable, resolveOnChain } from "../mezo/registry.js";
 import { createSession } from "../web/sessions.js";
 
@@ -72,10 +72,13 @@ export async function run(me: User, order: Order): Promise<Reply> {
       const state = h.ratio === null ? "No Trove open." : h.ratio >= me.threshold ? "All clear." : "⚠ Below your threshold.";
       const num = (x: string, d: number) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: Math.min(d, 2) });
       const lines = [
-        `MUSD balance: ${num(w.musd, 2)}`,
-        `Trove ratio: ${fmtRatio(h.ratio)}. ${state}`,
+        `Your Mezo wallet (${config.chain.name})`,
         ``,
-        Number(w.btc) === 0 ? `⚠ No BTC for gas. You need a little to send MUSD (/faucet on testnet).` : `Gas: ${num(w.btc, 6)} BTC`,
+        `💵 MUSD: ${num(w.musd, 2)}`,
+        `₿ BTC: ${num(w.btc, 6)}${Number(w.btc) === 0 ? "  ⚠ needed for gas (/faucet)" : "  (gas)"}`,
+        ...(w.mezo !== null ? [`Ⓜ MEZO: ${num(w.mezo, 2)}`] : []),
+        ``,
+        `Trove ratio: ${fmtRatio(h.ratio)}. ${state}`,
       ];
       return { text: lines.join("\n") };
     }

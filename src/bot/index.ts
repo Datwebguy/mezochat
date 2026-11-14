@@ -16,7 +16,7 @@ const onboarding = new Map<number, Step>();
 
 const MENU = new Keyboard().text("Balance").text("Health").row().text("Activity").text("Help").resized().persistent();
 const HELP = `Things you can say:
-• balance: your MUSD and Trove ratio
+• balance: your Mezo wallet (MUSD, BTC, MEZO)
 • health: Trove collateral and ratio
 • send 25 to @alice  (or to a 0x address)
 • request 40 from @bob
@@ -34,22 +34,22 @@ Or type / to pick a command.
 
 /** Slash commands: shown in Telegram's "/" menu. Usage is the hint sent when the command has no details. */
 const COMMANDS: { command: string; description: string; usage?: string }[] = [
-  { command: "balance", description: "Your MUSD balance and Trove ratio" },
-  { command: "health", description: "Collateral, debt and ratio details" },
-  { command: "send", description: "Send MUSD to a @username or 0x address", usage: "/send 25 to @alice\n/send 25 to 0x1234…abcd" },
-  { command: "request", description: "Request MUSD from a @username", usage: "/request 40 from @bob" },
-  { command: "split", description: "Split a bill", usage: "/split 120 with @alice @bob" },
-  { command: "pay", description: "Ratio-gated recurring payment", usage: "/pay 800 to @landlord on the 1st if ratio > 160" },
-  { command: "buy", description: "Spend via Mezo Market / Bitrefill", usage: "/buy amazon 50" },
+  { command: "balance", description: "Your Mezo wallet: MUSD, BTC, MEZO + Trove ratio" },
+  { command: "health", description: "Your Mezo Trove: collateral, debt, ratio" },
+  { command: "send", description: "Send MUSD on Mezo to a @username or 0x address", usage: "/send 25 to @alice\n/send 25 to 0x1234…abcd" },
+  { command: "request", description: "Request MUSD on Mezo from a @username", usage: "/request 40 from @bob" },
+  { command: "split", description: "Split a bill in MUSD on Mezo", usage: "/split 120 with @alice @bob" },
+  { command: "pay", description: "Recurring MUSD payment, gated by your Mezo Trove ratio", usage: "/pay 800 to @landlord on the 1st if ratio > 160" },
+  { command: "buy", description: "Spend MUSD via Mezo Market / Bitrefill", usage: "/buy amazon 50" },
   { command: "activity", description: "Recent receipts and actions" },
   { command: "recurring", description: "List or cancel recurring payments" },
   { command: "splits", description: "Who has paid your splits" },
-  { command: "alert", description: "Set your safety threshold", usage: "/alert 160   (or /alert on, /alert off)" },
-  { command: "whois", description: "Look up a @handle's wallet", usage: "/whois @alice" },
-  ...(config.network === "testnet" ? [{ command: "faucet", description: "Get free testnet BTC and MUSD" }] : []),
-  { command: "connect", description: "Link a different wallet" },
+  { command: "alert", description: "Set your Mezo Trove safety threshold", usage: "/alert 160   (or /alert on, /alert off)" },
+  { command: "whois", description: "Look up a @handle's Mezo wallet", usage: "/whois @alice" },
+  ...(config.network === "testnet" ? [{ command: "faucet", description: "Free Mezo testnet BTC and MEZO, and how to get MUSD" }] : []),
+  { command: "connect", description: "Link a different Mezo wallet" },
   { command: "help", description: "What I can do" },
-  { command: "start", description: "Get started" },
+  { command: "start", description: "Get started with MezoChat" },
 ];
 
 /** "/send@MezoChat_Bot 25 to @alice" -> "send 25 to @alice"; returns a usage hint when details are missing. */
@@ -103,7 +103,7 @@ export function createBot() {
     await ctx.reply(
       "Free test funds (Mezo Testnet only, no real value)\n\n" +
       "Step 1: Testnet BTC (pays gas, used as collateral)\n" +
-      "Tap \"Get testnet BTC\". On the Mezo Faucet page keep BTC selected, paste your address, tick \"Verify you are human\" and tap Request Tokens.\n\n" +
+      "Tap \"Get testnet BTC\". On the Mezo Faucet page keep BTC selected (switch to MEZO for MEZO tokens), paste your address, tick \"Verify you are human\" and tap Request Tokens.\n\n" +
       "Step 2: Test MUSD\n" +
       "The faucet doesn't give MUSD. Tap \"Borrow test MUSD\" to open Mezo's testnet app, connect this same wallet, and borrow MUSD using your test BTC as collateral.\n" +
       (addr ? `\nYour address (tap it to copy):\n\`${addr}\`` : "\nConnect your wallet first with /connect."),
