@@ -8,9 +8,9 @@ export interface Request { id: string; from: number; to: number; amount: string;
 export interface Split { id: string; owner: number; total: string; shares: { handle: string; amount: string; paid: boolean }[]; }
 export interface Recurring { id: string; owner: number; to: string; amount: string; day: number; minRatio: number; lastRun?: string; }
 
-interface DB { users: Record<string, User>; handles: Record<string, number>; activity: Activity[]; requests: Request[]; splits: Split[]; recurring: Recurring[]; }
+interface DB { sessions: Record<string, any>; users: Record<string, User>; handles: Record<string, number>; activity: Activity[]; requests: Request[]; splits: Split[]; recurring: Recurring[]; }
 
-const empty = (): DB => ({ users: {}, handles: {}, activity: [], requests: [], splits: [], recurring: [] });
+const empty = (): DB => ({ sessions: {}, users: {}, handles: {}, activity: [], requests: [], splits: [], recurring: [] });
 
 let db: DB = empty();
 let loaded = false;
@@ -73,5 +73,13 @@ export const store = {
   splitsOf(owner: number, limit = 5) { load(); return db.splits.filter(s => s.owner === owner).slice(-limit).reverse(); },
   allRecurring() { load(); return db.recurring; },
   markRan(id: string, date: string) { load(); const r = db.recurring.find(x => x.id === id); if (r) { r.lastRun = date; save(); } },
+  /** Signing/verify sessions persist across restarts. */
+  putSession(id: string, v: unknown) { load(); db.sessions[id] = v; save(); },
+  getSessionRaw(id: string) { load(); return db.sessions[id]; },
+  pruneSessions(maxAgeMs: number) {
+    load(); const cut = Date.now() - maxAgeMs; let n = 0;
+    for (const [k, v] of Object.entries(db.sessions)) if ((v as any).created < cut) { delete db.sessions[k]; n++; }
+    if (n) save();
+  },
   allUsers() { load(); return Object.values(db.users); },
 };

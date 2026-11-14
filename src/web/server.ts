@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage } from "node:http";
 import { getAddress, isAddress, isHash, parseEventLogs, parseUnits, verifyMessage as verifySig, type Address, type Hash } from "viem";
 import { config, web } from "../config.js";
 import { MUSD, buildTransfer, publicClient } from "../mezo/client.js";
-import { getSession, type Session } from "./sessions.js";
+import { getSession, markDone, type Session } from "./sessions.js";
 import { page } from "./page.js";
 
 const transferEvent = [{ type: "event", name: "Transfer", inputs: [
@@ -56,7 +56,7 @@ export function startServer(hooks: WebHooks) {
         if (!isAddress(b.address) || typeof b.signature !== "string") return json(400, { error: "Bad request" });
         const ok = await verifySig({ address: b.address, message: s.message, signature: b.signature });
         if (!ok) return json(400, { error: "Signature does not match this wallet." });
-        s.done = true;
+        markDone(s);
         await hooks.onVerified(s.telegramId, getAddress(b.address));
         return json(200, { ok: true });
       }
@@ -65,7 +65,7 @@ export function startServer(hooks: WebHooks) {
       const expected = hooks.expectedFrom(s.telegramId);
       if (expected && expected.toLowerCase() !== b.from.toLowerCase())
         return json(400, { error: `Pay from your linked wallet ${expected}.` });
-      s.done = true;
+      markDone(s);
       json(200, { ok: true });
       confirmTransfer(b.txHash, b.from, s.to as Address, s.amount)
         .then(r => hooks.onPaid(s, b.txHash, r.ok, r.reason))

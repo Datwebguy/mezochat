@@ -23,7 +23,7 @@ const sid=new URLSearchParams(location.search).get("s");
 const $=id=>document.getElementById(id);const status=t=>$("status").textContent=t;
 let S;
 async function load(){
-  const r=await fetch("/api/session/"+sid); if(!r.ok){$("summary").textContent="This link expired. Go back to Telegram and try again.";return;}
+  const r=await fetch("/api/session/"+sid); if(!r.ok){$("summary").textContent="This link has expired or was already used. Go back to Telegram and send /connect (or repeat your payment) for a fresh link.";return;}
   S=await r.json();
   $("summary").textContent=S.kind==="verify"?"Prove you own this wallet by signing a message. No funds move and it costs nothing.":S.summary;
   if(!window.ethereum){
