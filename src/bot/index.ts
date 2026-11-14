@@ -6,6 +6,7 @@ import { ratioGate, fmtRatio } from "../agent/safety.js";
 import { labelFor, payFlow, pending, receipt, run, signButtons, type Button, type Reply } from "../commands/index.js";
 import { config, web } from "../config.js";
 import { txUrl } from "../mezo/client.js";
+import { claimOnChain, registryEnabled } from "../mezo/registry.js";
 import { store, normalizeHandle } from "../registry/store.js";
 import { createSession, verifyMessage, type Session } from "../web/sessions.js";
 import type { WebHooks } from "../web/server.js";
@@ -158,7 +159,14 @@ export function createBot() {
       const res = store.register(id, text, step.address, step.verified);
       if (!res.ok) return ctx.reply(res.reason);
       onboarding.delete(id);
-      return ctx.reply(`You're @${normalizeHandle(text)}. Try "balance", or tap Help.`, { reply_markup: MENU });
+      const handle = normalizeHandle(text);
+      await ctx.reply(`You're @${handle}. Try "balance", or tap Help.`, { reply_markup: MENU });
+      if (step.verified && registryEnabled()) {
+        claimOnChain(handle, step.address as Address)
+          .then(h => ctx.reply(`⛓ @${handle} is now registered on Mezo: ${txUrl(h)}`))
+          .catch(e => console.error("registry claim failed", handle, (e as Error).message));
+      }
+      return;
     }
 
     const me = store.user(id);

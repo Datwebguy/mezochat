@@ -42,3 +42,9 @@ export const web = {
   publicUrl: (process.env.PUBLIC_URL ?? "").replace(/\/$/, ""),
   port: Number(process.env.PORT ?? 3000),
 };
+
+/** Optional on-chain handle registry. Needs a deployed HandleRegistry and a funded relayer key (pays gas in BTC). */
+export const registry = {
+  address: (process.env.REGISTRY_ADDRESS ?? "") as `0x${string}` | "",
+  relayerKey: (process.env.PRIVATE_KEY ?? "") as `0x${string}` | "",
+};
