@@ -7,6 +7,8 @@ import { mezoChain, publicClient } from "./client.js";
 const { abi } = JSON.parse(readFileSync(new URL("../../contracts/HandleRegistry.json", import.meta.url), "utf8"));
 
 export const registryEnabled = () => !!registry.address && !!registry.relayerKey;
+/** Reads only need the contract address. */
+export const registryReadable = () => !!registry.address;
 
 /** Relayer writes handle -> owner on-chain after the bot verified wallet ownership by signature. */
 export async function claimOnChain(handle: string, owner: Address): Promise<Hash> {

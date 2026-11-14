@@ -27,6 +27,7 @@ Or type / to pick a command.
 • activity
 • recurring · cancel 1
 • splits
+• whois @alice
 • /connect to link a new wallet`;
 
 /** Slash commands: shown in Telegram's "/" menu. Usage is the hint sent when the command has no details. */
@@ -42,6 +43,7 @@ const COMMANDS: { command: string; description: string; usage?: string }[] = [
   { command: "recurring", description: "List or cancel recurring payments" },
   { command: "splits", description: "Who has paid your splits" },
   { command: "alert", description: "Set your safety threshold", usage: "/alert 160   (or /alert on, /alert off)" },
+  { command: "whois", description: "Look up a @handle's wallet", usage: "/whois @alice" },
   { command: "connect", description: "Link a different wallet" },
   { command: "help", description: "What I can do" },
   { command: "start", description: "Get started" },

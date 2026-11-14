@@ -4,6 +4,7 @@ import type { Order } from "../agent/parse.js";
 import { buildTransfer, getBalance, getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { store, normalizeHandle, type User } from "../registry/store.js";
 import { web } from "../config.js";
+import { registryReadable, resolveOnChain } from "../mezo/registry.js";
 import { createSession } from "../web/sessions.js";
 
 /** One button that opens the signer page; the page then offers MetaMask, Trust, Coinbase, OKX or any wallet browser. */
@@ -28,6 +29,13 @@ export const receipt = (action: string, amount: string, who: string, ratio: numb
 export function labelFor(address: string) {
   const u = store.allUsers().find(x => x.address.toLowerCase() === address.toLowerCase());
   return u ? `@${u.handle}` : `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+/** Handle known only to the on-chain registry (e.g. claimed directly on the contract). */
+async function resolveChainOnly(target: string) {
+  if (isAddress(target) || !registryReadable()) return null;
+  const a = await resolveOnChain(normalizeHandle(target)).catch(() => null);
+  return a ? { address: a, label: `@${normalizeHandle(target)}` } : null;
 }
 
 /** Resolve @handle or 0x address. */
@@ -71,7 +79,7 @@ export async function run(me: User, order: Order): Promise<Reply> {
     }
     case "send": {
       if (!valid(order.amount)) return { text: "Enter an amount above 0." };
-      const r = resolve(order.to);
+      const r = resolve(order.to) ?? await resolveChainOnly(order.to);
       if (!r) return { text: `I don't know ${order.to}. Use a claimed @handle or a 0x address.` };
       const g = await ratioGate(me);
       if (!g.ok) return { text: `✗ ${g.reason}` };
@@ -135,6 +143,15 @@ export async function run(me: User, order: Order): Promise<Reply> {
       });
       const open = sp.filter(x => x.shares.some(s => !s.paid));
       return { text: lines.join("\n\n"), buttons: open.map(x => ({ text: `Nudge (${x.total} split)`, data: `nudge:${x.id}` })) };
+    }
+    case "whois": {
+      const h = normalizeHandle(order.who);
+      const u = store.byHandle(h);
+      const chain = registryReadable() ? await resolveOnChain(h).catch(() => null) : null;
+      if (!u && !chain) return { text: `@${h} isn't registered.` };
+      const addr = u?.address ?? chain!;
+      const onChain = chain ? (chain.toLowerCase() === addr.toLowerCase() ? "⛓ registered on Mezo ✓" : "⚠ on-chain owner differs") : "not on-chain yet";
+      return { text: `@${h}\nWallet: ${addr}\n${u?.verified ? "✓ wallet ownership verified" : "address not verified"}\n${onChain}` };
     }
     case "activity": {
       const items = store.recent(me.telegramId);

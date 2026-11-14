@@ -7,7 +7,7 @@ export type Order =
   | { t: "recurring"; amount: string; to: string; day: number; minRatio: number }
   | { t: "spend"; item: string; amount: string }
   | { t: "tx"; hash: string }
-  | { t: "recurringList" } | { t: "recurringCancel"; n: number } | { t: "splits" }
+  | { t: "recurringList" } | { t: "recurringCancel"; n: number } | { t: "splits" } | { t: "whois"; who: string }
   | { t: "unknown" };
 
 const N = "(\\d+(?:\\.\\d{1,18})?)";
@@ -24,6 +24,7 @@ export function parseOrder(raw: string): Order {
   if (/^(recurring|my payments|my recurring|scheduled)$/.test(l)) return { t: "recurringList" };
   if ((m = l.match(/^(?:cancel|stop)(?: recurring| payment)? #?(\d+)$/))) return { t: "recurringCancel", n: Number(m[1]) };
   if (/^(splits|my splits)$/.test(l)) return { t: "splits" };
+  if ((m = l.match(/^(?:whois|who is|lookup) (@?[a-z][a-z0-9_]{2,31})\??$/))) return { t: "whois", who: m[1] };
 
   if ((m = l.match(/^(?:set )?alerts? (on|off)$/))) return { t: "alerts", on: m[1] === "on" };
   if ((m = l.match(/^set alert (\d+)$/))) return { t: "alerts", threshold: Number(m[1]) };
