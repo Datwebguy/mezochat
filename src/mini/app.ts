@@ -258,7 +258,7 @@ async function borrowView() {
   <div class="card" id="wallet">Reading your wallet…</div>
   <div class="card"><label>Borrow MUSD<input id="debt" inputmode="decimal" placeholder="Amount of MUSD"></label>
   <label>Deposit BTC<input id="coll" inputmode="decimal" placeholder="Amount of BTC"></label>
-  <div class="fill"><button id="fillSafe" class="secondary small">BTC for safe level</button><button id="fillMax" class="secondary small">Max safe MUSD</button></div></div>
+  <div class="fill"><button id="fillSafe" class="secondary small">BTC for safe level (+2%)</button><button id="fillMax" class="secondary small">Max safe MUSD</button></div></div>
   <div class="card" id="quote"></div>
   <label class="ack hidden" id="ackrow"><input type="checkbox" id="ack"> <span id="acktext"></span></label>
   <div class="card">${pinField()}</div><button id="go" disabled>Borrow</button><button id="back" class="secondary">Back</button><div id="msg" class="msg"></div>`);
@@ -300,7 +300,8 @@ async function borrowView() {
   const refresh = () => { clearTimeout(t); $<HTMLButtonElement>("go").disabled = true; t = setTimeout(() => fetchQuote().catch(e => { $("quote").textContent = (e as Error).message; }), 350); };
   $("coll").oninput = refresh; $("debt").oninput = refresh; $("ack").onchange = canGo;
   // Helpers only fill a box with a number computed from live data; the user stays in control.
-  $("fillSafe").onclick = () => { if (q && Number(q.needBtcSafe) > 0) { $("coll").value = Number(q.needBtcSafe).toFixed(6); refresh(); } else msg("Enter the MUSD amount first.", "err"); };
+  // 2% above the exact amount, so a small BTC price move doesn't put you below your level right away
+  $("fillSafe").onclick = () => { if (q && Number(q.needBtcSafe) > 0) { $("coll").value = (Number(q.needBtcSafe) * 1.02).toFixed(6); refresh(); } else msg("Enter the MUSD amount first.", "err"); };
   $("fillMax").onclick = () => { if (q) { $("debt").value = String(Math.floor(Number(q.maxSafeBorrowMusd))); refresh(); } };
   try { await fetchQuote(); } catch (e) { $("wallet").textContent = (e as Error).message; }
   $("go").onclick = async () => {

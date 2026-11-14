@@ -67,7 +67,14 @@ try {
     await state("after borrow");
   } else console.log("2) Trove already open, skipping borrow");
 
-  console.log("3) Buy a Bitrefill gift card on Mezo Market (approve + order)");
+  console.log("3) Add BTC to the loan");
+  await open("?view=loan"); await p.waitForFunction(() => document.getElementById("state")?.textContent?.includes("Collateral"), null, { timeout: 60000 });
+  await p.fill("#amt", "0.003"); await p.waitForTimeout(5000);
+  console.log("   preview:", (await p.textContent("#result"))!.replace(/\s+/g, " ").slice(0, 160));
+  await p.fill("#pin", PIN); await p.click("#go"); await p.waitForSelector("text=Submitted", { timeout: 120000 });
+  await waitFor(() => events.some(e => e.startsWith("loan add")));
+
+  console.log("4) Buy a Bitrefill gift card on Mezo Market (approve + order)");
   await open("?view=market"); await p.waitForSelector("#items button[data-id]", { timeout: 60000 });
   await p.click("#items button[data-id='1003']"); await p.waitForTimeout(6000);
   console.log("   quote:", (await p.textContent("#sum"))!.replace(/\s+/g, " ").slice(0, 220));
@@ -77,13 +84,6 @@ try {
   await p.waitForSelector("text=Order sent", { timeout: 300000 });
   await waitFor(() => events.some(e => e.startsWith("market order")));
   await state("after purchase");
-
-  console.log("4) Add BTC to the loan");
-  await open("?view=loan"); await p.waitForFunction(() => document.getElementById("state")?.textContent?.includes("Collateral"), null, { timeout: 60000 });
-  await p.fill("#amt", "0.001"); await p.waitForTimeout(5000);
-  console.log("   preview:", (await p.textContent("#result"))!.replace(/\s+/g, " ").slice(0, 160));
-  await p.fill("#pin", PIN); await p.click("#go"); await p.waitForSelector("text=Submitted", { timeout: 120000 });
-  await waitFor(() => events.some(e => e.startsWith("loan add")));
 
   console.log("5) Repay 1 MUSD");
   await open("?view=loan"); await p.waitForFunction(() => document.getElementById("state")?.textContent?.includes("Collateral"), null, { timeout: 60000 });
