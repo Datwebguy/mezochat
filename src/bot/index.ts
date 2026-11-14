@@ -105,9 +105,9 @@ export function createBot() {
       "Step 1: Testnet BTC (pays gas, used as collateral)\n" +
       "Tap \"Get testnet BTC\". On the Mezo Faucet page keep BTC selected (switch to MEZO for MEZO tokens), paste your address, tick \"Verify you are human\" and tap Request Tokens.\n\n" +
       "Step 2: Test MUSD\n" +
-      "The faucet doesn't give MUSD. Tap \"Borrow test MUSD\" to open Mezo's testnet app, connect this same wallet, and borrow MUSD using your test BTC as collateral.\n" +
+      "The faucet doesn't give MUSD. Tap \"Borrow test MUSD\" to open the Borrow page on testnet.mezo.org (check the address bar says testnet, NOT mezo.org), connect this same wallet, and borrow MUSD using your test BTC as collateral.\n" +
       (addr ? `\nYour address (tap it to copy):\n\`${addr}\`` : "\nConnect your wallet first with /connect."),
-      { parse_mode: "Markdown", reply_markup: kb([{ text: "Get testnet BTC", url: "https://faucet.test.mezo.org" }, { text: "Borrow test MUSD", url: "https://testnet.mezo.org" }]) });
+      { parse_mode: "Markdown", reply_markup: kb([{ text: "Get testnet BTC", url: "https://faucet.test.mezo.org" }, { text: "Borrow test MUSD", url: "https://testnet.mezo.org/borrow" }]) });
   });
   bot.command("help", ctx => ctx.reply(HELP, { reply_markup: MENU }));
 
