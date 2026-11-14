@@ -1,7 +1,7 @@
 import { isAddress, type Address } from "viem";
 import { ratioGate, fmtRatio } from "../agent/safety.js";
 import type { Order } from "../agent/parse.js";
-import { buildTransfer, getBalance, getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
+import { buildTransfer, getWallet, getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { store, normalizeHandle, type User } from "../registry/store.js";
 import { web } from "../config.js";
 import { registryReadable, resolveOnChain } from "../mezo/registry.js";
@@ -68,9 +68,17 @@ export async function payFlow(me: User, to: Address, label: string, amount: stri
 export async function run(me: User, order: Order): Promise<Reply> {
   switch (order.t) {
     case "balance": {
-      const [bal, h] = await Promise.all([getBalance(me.address as Address), getTroveHealth(me.address as Address)]);
+      const [w, h] = await Promise.all([getWallet(me.address as Address), getTroveHealth(me.address as Address)]);
       const state = h.ratio === null ? "No Trove open." : h.ratio >= me.threshold ? "All clear." : "⚠ Below your threshold.";
-      return { text: `MUSD balance: ${Number(bal).toFixed(2)}. Trove ratio: ${fmtRatio(h.ratio)}. ${state}` };
+      const num = (x: string, d: number) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: Math.min(d, 2) });
+      const lines = [
+        `💵 MUSD: ${num(w.musd, 2)}`,
+        `₿ BTC: ${num(w.btc, 6)}${Number(w.btc) === 0 ? " (you need some for gas)" : ""}`,
+        ...(w.mezo !== null ? [`Ⓜ MEZO: ${num(w.mezo, 2)}`] : []),
+        ``,
+        `Trove ratio: ${fmtRatio(h.ratio)}. ${state}`,
+      ];
+      return { text: lines.join("\n") };
     }
     case "health": {
       const h = await getTroveHealth(me.address as Address);

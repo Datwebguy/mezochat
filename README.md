@@ -39,7 +39,7 @@ Type `/` in the chat for the menu. Plain sentences work too.
 
 | Command | Example |
 |---|---|
-| `/balance` | MUSD balance and ratio |
+| `/balance` | MUSD, BTC and MEZO balances plus Trove ratio |
 | `/health` | Collateral, debt, BTC price, ratio |
 | `/send` | `/send 25 to @alice` |
 | `/request` | `/request 40 from @bob` |
