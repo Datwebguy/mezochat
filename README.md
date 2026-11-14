@@ -4,7 +4,7 @@
 
 **Telegram-native banking for MUSD on Mezo.** Check your balance and Trove health, send and request MUSD by @handle, split bills, schedule ratio-gated payments and spend through Mezo Market, all without leaving the chat.
 
-Try it: **[@MezoChat_Bot](https://t.me/MezoChat_Bot)** (Mezo Testnet)
+Try it: **[@MezoChat_Bot](https://t.me/MezoChat_Bot)** (Mezo Testnet). Wallet signing page: [pay.mezochat.xyz](https://pay.mezochat.xyz/health)
 
 ## Why
 
