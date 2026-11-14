@@ -5,13 +5,13 @@ import { aiParse } from "../agent/ai.js";
 import { ratioGate, fmtRatio } from "../agent/safety.js";
 import { labelFor, payFlow, pending, receipt, run, signButtons, type Button, type Reply } from "../commands/index.js";
 import { config, web } from "../config.js";
-import { txUrl } from "../mezo/client.js";
+import { getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { claimOnChain, registryEnabled } from "../mezo/registry.js";
 import { store, normalizeHandle } from "../registry/store.js";
 import { createSession, verifyMessage, type Session } from "../web/sessions.js";
 import type { WebHooks } from "../web/server.js";
 
-type Step = { s: "address" } | { s: "handle"; address: string; verified: boolean };
+type Step = { s: "address" } | { s: "handle"; address: string; verified: boolean; wallet?: "mini" | "external" };
 const onboarding = new Map<number, Step>();
 
 const MENU = new Keyboard().text("Balance").text("Health").row().text("Activity").text("Help").resized().persistent();
@@ -28,12 +28,15 @@ Or type / to pick a command.
 • activity
 • recurring · cancel 1
 • splits
+• wallet / borrow: your wallet and MUSD loans, inside Telegram
 • whois @alice
 • faucet: free testnet funds
 • /connect to link a new wallet`;
 
 /** Slash commands: shown in Telegram's "/" menu. Usage is the hint sent when the command has no details. */
 const COMMANDS: { command: string; description: string; usage?: string }[] = [
+  { command: "wallet", description: "Your MezoChat wallet inside Telegram" },
+  { command: "borrow", description: "Borrow MUSD against BTC, inside Telegram" },
   { command: "balance", description: "Your Mezo wallet: MUSD, BTC, MEZO + Trove ratio" },
   { command: "health", description: "Your Mezo Trove: collateral, debt, ratio" },
   { command: "send", description: "Send MUSD on Mezo to a @username or 0x address", usage: "/send 25 to @alice\n/send 25 to 0x1234…abcd" },
@@ -67,7 +70,7 @@ export function fromSlash(text: string): { text: string } | { usage: string } | 
 const kb = (bs?: Button[]) => {
   if (!bs?.length) return undefined;
   const k = new InlineKeyboard();
-  for (const b of bs) b.url ? k.url(b.text, b.url) : k.text(b.text, b.data!);
+  for (const b of bs) b.webApp ? k.webApp(b.text, b.webApp) : b.url ? k.url(b.text, b.url) : k.text(b.text, b.data!);
   return k;
 };
 
@@ -79,6 +82,7 @@ export function createBot() {
     for (const n of r.notify ?? []) await bot.api.sendMessage(n.telegramId, n.text, { reply_markup: kb(n.buttons) }).catch(() => {});
   };
 
+  const miniUrl = (q = "") => `${web.publicUrl}/mini${q}`;
   const startConnect = async (id: number) => {
     if (!web.publicUrl) {
       onboarding.set(id, { s: "address" });
@@ -87,8 +91,11 @@ export function createBot() {
     const s = createSession({ kind: "verify", telegramId: id, message: verifyMessage(id) });
     onboarding.set(id, { s: "address" });
     return bot.api.sendMessage(id,
-      "Connect your wallet: tap below and sign a free message to prove it's yours. I never hold your keys.\nOr paste an address (0x…) for read-only use.",
-      { reply_markup: kb(signButtons(s.id, "Connect wallet")) });
+      "Set up your wallet:\n\n" +
+      "• Create wallet in Telegram: everything happens here. Your key is encrypted with your PIN; MezoChat never sees it.\n" +
+      "• Connect existing wallet: use MetaMask, Trust, OKX and others.\n\n" +
+      "Or paste an address (0x…) for read-only use.",
+      { reply_markup: new InlineKeyboard().webApp("✨ Create wallet in Telegram", miniUrl()).row().url("Connect existing wallet", `${web.publicUrl}/app?s=${s.id}`) });
   };
 
   bot.command("start", async ctx => {
@@ -96,6 +103,13 @@ export function createBot() {
     await startConnect(ctx.from!.id);
   });
   bot.command("connect", ctx => startConnect(ctx.from!.id));
+  bot.command("wallet", ctx => web.publicUrl
+    ? ctx.reply("Open your MezoChat wallet:", { reply_markup: new InlineKeyboard().webApp("Open wallet", miniUrl()) })
+    : ctx.reply("The in-Telegram wallet isn't enabled on this server."));
+  bot.command("borrow", ctx => web.publicUrl
+    ? ctx.reply("Borrow MUSD against your BTC, right here. You'll see the ratio, fee and liquidation price before you confirm with your PIN.",
+        { reply_markup: new InlineKeyboard().webApp("Borrow MUSD", miniUrl("?view=borrow")) })
+    : ctx.reply("Borrowing in Telegram isn't enabled on this server."));
   bot.command("faucet", async ctx => {
     if (config.network !== "testnet") return ctx.reply("The faucet is only for Mezo Testnet.");
     const me = store.user(ctx.from!.id);
@@ -176,6 +190,7 @@ export function createBot() {
     if (step?.s === "handle") {
       const res = store.register(id, text, step.address, step.verified);
       if (!res.ok) return ctx.reply(res.reason);
+      store.setWallet(id, step.wallet ?? "external");
       onboarding.delete(id);
       const handle = normalizeHandle(text);
       await ctx.reply(`You're @${handle}. Try "balance", or tap Help.`, { reply_markup: MENU });
@@ -212,11 +227,24 @@ export function createBot() {
   bot.catch(err => console.error("bot error", err.error));
 
   const hooks: WebHooks = {
-    async onVerified(telegramId, address) {
+    async onVerified(telegramId, address, wallet = "external") {
       const u = store.user(telegramId);
-      if (u) { store.setAddress(telegramId, address, true); onboarding.delete(telegramId); await bot.api.sendMessage(telegramId, `✓ Wallet ${address} linked and verified.`); return; }
-      onboarding.set(telegramId, { s: "handle", address, verified: true });
-      await bot.api.sendMessage(telegramId, `✓ Wallet ${address} verified.\nNow claim a @handle (3-32 letters, numbers, underscore).`);
+      const kind = wallet === "mini" ? "MezoChat wallet" : "Wallet";
+      if (u) { store.setAddress(telegramId, address, true, wallet); onboarding.delete(telegramId); await bot.api.sendMessage(telegramId, `✓ ${kind} ${address} linked and verified.`); return; }
+      onboarding.set(telegramId, { s: "handle", address, verified: true, wallet });
+      await bot.api.sendMessage(telegramId, `✓ ${kind} ${address} ${wallet === "mini" ? "created" : "verified"}.\nNow claim a @handle (3-32 letters, numbers, underscore).`);
+    },
+    async onBorrowed(telegramId, hash, coll, debt) {
+      await bot.api.sendMessage(telegramId, `⏳ Borrow submitted: ${debt} MUSD against ${coll} BTC. Waiting for confirmation…`).catch(() => {});
+      try {
+        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: 10 * 60_000 });
+        if (rc.status !== "success") throw new Error("Transaction reverted");
+        const h = await getTroveHealth(rc.from);
+        store.log({ telegramId, kind: "borrow", amount: debt, counterparty: `${coll} BTC collateral`, ratio: h.ratio, tx: hash });
+        await bot.api.sendMessage(telegramId, `✓ Borrowed ${debt} MUSD\nCollateral: ${coll} BTC\nTrove ratio: ${fmtRatio(h.ratio)}\nTx: ${txUrl(hash)}`);
+        if (h.ratio !== null && h.ratio < (store.user(telegramId)?.threshold ?? 150))
+          await bot.api.sendMessage(telegramId, `Heads up: your ratio is below your ${store.user(telegramId)?.threshold}% safety threshold, so sends will be blocked. Add BTC, or lower it with /alert ${Math.floor(h.ratio) - 2}.`);
+      } catch (e) { await bot.api.sendMessage(telegramId, `✗ Borrow didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
     },
     expectedFrom(telegramId) { return (store.user(telegramId)?.address as Address) ?? null; },
     async onPaid(s: Extract<Session, { kind: "pay" }>, hash, ok, reason) {
@@ -262,6 +290,7 @@ export function createBot() {
   };
 
   const setup = async () => {
+    if (web.publicUrl) await bot.api.setChatMenuButton({ menu_button: { type: "web_app", text: "Wallet", web_app: { url: `${web.publicUrl}/mini` } } }).catch(e => console.error("menu button", e));
     await bot.api.setMyShortDescription("Your MUSD bank inside Telegram. Send, split, spend, with Trove safety checks.").catch(e => console.error(e));
     await bot.api.setMyDescription(
       "MezoChat is Telegram-native banking for MUSD on Mezo.\n\n" +

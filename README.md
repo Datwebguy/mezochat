@@ -33,12 +33,26 @@ It's non-custodial. The bot never holds keys, and every payment is signed in the
 | **Alerts** | Warns when your ratio drops below your threshold and urgently near the 110% liquidation line. |
 | **Natural language** | "yo send bob twenty for lunch" → `send 20 to @bob`. The AI can only produce existing commands, which then go through the same confirmation and safety checks. |
 
+## In-Telegram wallet (Mini App)
+
+Users who don't want to leave Telegram can create a wallet inside it. Tap **✨ Create wallet in Telegram** at `/start` or the **Wallet** menu button.
+
+- **Non-custodial:** the key is generated in the Mini App, encrypted with the user's PIN (PBKDF2 210k + AES-GCM), and stored in Telegram CloudStorage with a device copy. The server never sees the key or PIN.
+- **Linked by proof:** the Mini App signs a link message, and the server checks both the signature and Telegram's signed `initData` before linking the wallet to that Telegram user.
+- **Pay with a PIN:** send, request, split and recurring payments open a "Pay" panel inside Telegram. Enter the PIN, and the MUSD transfer is signed and broadcast from the Mini App.
+- **Borrow MUSD in chat:** `/borrow` opens a live quote (ratio, fee, refundable 200 MUSD deposit, total debt, liquidation price), then calls Mezo's own `BorrowerOperations.openTrove` with sorted-list hints. The bot confirms in chat when the MUSD arrives.
+- **Back up anytime:** reveal the private key with the PIN and import it into any EVM wallet.
+
+Users can still connect MetaMask, Trust, Coinbase, OKX or other wallets instead.
+
 ## Commands
 
 Type `/` in the chat for the menu. Plain sentences work too.
 
 | Command | Example |
 |---|---|
+| `/wallet` | Open your in-Telegram wallet |
+| `/borrow` | Borrow MUSD against BTC inside Telegram |
 | `/balance` | Your Mezo wallet: MUSD, BTC (gas), MEZO and Trove ratio |
 | `/health` | Collateral, debt, BTC price, ratio |
 | `/send` | `/send 25 to @alice` or `/send 25 to 0x…`. Works with a MezoChat handle, a Telegram @username or a wallet address. |

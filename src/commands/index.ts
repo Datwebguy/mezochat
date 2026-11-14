@@ -12,7 +12,7 @@ export function signButtons(sessionId: string, label: string): Button[] {
   return [{ text: label, url: `${web.publicUrl}/app?s=${sessionId}` }];
 }
 
-export interface Button { text: string; data?: string; url?: string }
+export interface Button { text: string; data?: string; url?: string; webApp?: string }
 export interface Reply { text: string; buttons?: Button[]; notify?: { telegramId: number; text: string; buttons?: Button[] }[] }
 
 /** Short-lived confirmations (Telegram callback data is limited to 64 bytes). */
@@ -55,8 +55,10 @@ export async function payFlow(me: User, to: Address, label: string, amount: stri
   const action = kind === "send" ? "Send" : kind === "split" ? "Split share" : kind === "recurring" ? "Recurring payment" : "Payment";
   if (web.publicUrl) {
     const s = createSession({ kind: "pay", telegramId: me.telegramId, to, label, amount, action, ratio: gate.ratio, split });
-    return { text: `${action}: ${amount} MUSD → ${label}\nRatio ${fmtRatio(gate.ratio)} ✓\nTap to sign in your wallet. I'll post the receipt when it confirms.`,
-      buttons: signButtons(s.id, `Sign ${amount} MUSD`) };
+    const buttons: Button[] = me.wallet === "mini"
+      ? [{ text: `Pay ${amount} MUSD`, webApp: `${web.publicUrl}/mini?s=${s.id}` }]
+      : signButtons(s.id, `Sign ${amount} MUSD`);
+    return { text: `${action}: ${amount} MUSD → ${label}\nRatio ${fmtRatio(gate.ratio)} ✓\n${me.wallet === "mini" ? "Tap to confirm with your PIN" : "Tap to sign in your wallet"}. I'll post the receipt when it confirms.`, buttons };
   }
   // Fallback when no public URL is configured: EIP-681 link + manual tx hash.
   const t = buildTransfer(to, amount);

@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from "
 import { dirname } from "node:path";
 import { config } from "../config.js";
 
-export interface User { telegramId: number; handle: string; address: string; threshold: number; alerts: boolean; verified?: boolean; tgUsername?: string; }
+export interface User { telegramId: number; handle: string; address: string; threshold: number; alerts: boolean; verified?: boolean; tgUsername?: string; wallet?: "mini" | "external"; }
 export interface Activity { id: string; ts: number; telegramId: number; kind: string; amount?: string; counterparty?: string; ratio?: number | null; tx?: string; note?: string; }
 export interface Request { id: string; from: number; to: number; amount: string; status: "open" | "paid" | "declined"; }
 export interface Split { id: string; owner: number; total: string; shares: { handle: string; amount: string; paid: boolean }[]; }
@@ -57,9 +57,10 @@ export const store = {
   update(telegramId: number, patch: Partial<Pick<User, "threshold" | "alerts">>) {
     load(); const u = db.users[telegramId]; if (u) { Object.assign(u, patch); save(); }
   },
-  setAddress(telegramId: number, address: string, verified: boolean) {
-    load(); const u = db.users[telegramId]; if (u) { u.address = address; u.verified = verified; save(); }
+  setAddress(telegramId: number, address: string, verified: boolean, wallet?: "mini" | "external") {
+    load(); const u = db.users[telegramId]; if (u) { u.address = address; u.verified = verified; if (wallet) u.wallet = wallet; save(); }
   },
+  setWallet(telegramId: number, wallet: "mini" | "external") { load(); const u = db.users[telegramId]; if (u) { u.wallet = wallet; save(); } },
   log(a: Omit<Activity, "id" | "ts">) { load(); db.activity.push({ id: uid(), ts: Date.now(), ...a }); save(); },
   recent(telegramId: number, sinceMs = 7 * 864e5, limit = 10) {
     load(); const cut = Date.now() - sinceMs;

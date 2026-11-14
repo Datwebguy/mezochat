@@ -12,6 +12,8 @@ export const NETWORKS = {
     troveManager: "0x94AfB503dBca74aC3E4929BACEeDfCe19B93c193",
     priceFeed: "0xc5aC5A8892230E0A3e1c473881A2de7353fFcA88",
     borrowerOperations: "0x44b1bac67dDA612a41a58AAf779143B181dEe031",
+    hintHelpers: "0xD267b3bE2514375A075fd03C3D9CBa6b95317DC3",
+    sortedTroves: "0x8C5DB4C62BF29c1C4564390d10c20a47E0b2749f",
   },
   testnet: {
     id: 31611,
@@ -22,6 +24,8 @@ export const NETWORKS = {
     troveManager: "0xE47c80e8c23f6B4A1aE41c34837a0599D5D16bb0",
     priceFeed: "0x86bCF0841622a5dAC14A313a15f96A95421b9366",
     borrowerOperations: "0xCdF7028ceAB81fA0C6971208e83fa7872994beE5",
+    hintHelpers: "0x4e4cBA3779d56386ED43631b4dCD6d8EacEcBCF6",
+    sortedTroves: "0x722E4D24FD6Ff8b0AC679450F3D91294607268fA",
   },
 } as const;
 
