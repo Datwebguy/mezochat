@@ -246,6 +246,7 @@ export function createBot() {
           await bot.api.sendMessage(telegramId, `Heads up: your ratio is below your ${store.user(telegramId)?.threshold}% safety threshold, so sends will be blocked. Add BTC, or lower it with /alert ${Math.floor(h.ratio) - 2}.`);
       } catch (e) { await bot.api.sendMessage(telegramId, `✗ Borrow didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
     },
+    thresholdFor(telegramId) { return store.user(telegramId)?.threshold; },
     expectedFrom(telegramId) { return (store.user(telegramId)?.address as Address) ?? null; },
     async onPaid(s: Extract<Session, { kind: "pay" }>, hash, ok, reason) {
       if (!ok) { await bot.api.sendMessage(s.telegramId, `✗ ${s.action} of ${s.amount} MUSD to ${s.label} did not go through: ${reason}\n${txUrl(hash)}`); return; }

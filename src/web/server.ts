@@ -15,6 +15,8 @@ export interface WebHooks {
   onVerified(telegramId: number, address: Address, wallet?: "mini" | "external"): Promise<void>;
   /** In-Telegram borrow submitted; the hook confirms it and reports in chat. */
   onBorrowed?(telegramId: number, hash: Hash, coll: string, debt: string): Promise<void>;
+  /** The user's /alert safety threshold in %, if known. */
+  thresholdFor?(telegramId: number): number | undefined;
   /** expectedFrom = the user's linked address; null if unknown */
   expectedFrom(telegramId: number): Address | null;
   onPaid(s: Extract<Session, { kind: "pay" }>, hash: Hash, ok: boolean, reason?: string): Promise<void>;
@@ -51,7 +53,10 @@ export function startServer(hooks: WebHooks) {
         const a = url.searchParams.get("address") ?? "";
         const num = (k: string) => { const v = (url.searchParams.get(k) ?? "").trim(); return /^\d{0,12}(\.\d{0,18})?$/.test(v) && v !== "" && v !== "." ? v : "0"; };
         if (!isAddress(a)) return json(400, { error: "Bad address" });
-        return json(200, await quoteBorrow(a, num("coll"), num("debt")));
+        // The user's own /alert threshold, when the Mini App proves who they are
+        const who = verifyInitData(url.searchParams.get("tg") ?? "", config.botToken);
+        const threshold = who ? hooks.thresholdFor?.(who.id) : undefined;
+        return json(200, await quoteBorrow(a, num("coll"), num("debt"), threshold ?? undefined));
       }
       if (req.method === "POST" && url.pathname === "/api/mini/link") {
         const b = await body(req);

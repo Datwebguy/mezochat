@@ -22,94 +22,108 @@ const stAbi = [{ type: "function", name: "findInsertPosition", stateMutability: 
   inputs: [{ name: "_NICR", type: "uint256" }, { name: "_prevId", type: "address" }, { name: "_nextId", type: "address" }],
   outputs: [{ type: "address" }, { type: "address" }] }] as const;
 
+/** Every number here is computed from the user's input plus live Mezo data (contracts, balance, gas price). */
 export interface BorrowQuote {
   ok: boolean;
-  error?: string;
+  error?: string;            // blocks borrowing, says exactly what is missing
+  warning?: string;          // allowed, but needs the user's explicit acknowledgement
   collateralBtc: string;
   borrowMusd: string;
+  // live wallet + network data
+  balanceBtc: string;
+  gasReserveBtc: string;     // live gas price x openTrove gas
+  availableBtc: string;      // balance minus gas reserve
+  btcPrice: string;
+  minRatio: number;          // Mezo's MCR, or CCR in recovery mode (read from the contract)
+  safeRatio: number;         // the user's own /alert threshold
+  recoveryMode: boolean;
+  minLoanMusd: string;       // Mezo minNetDebt (includes the fee)
+  minBorrowInput: string;    // smallest amount the user can type (minNetDebt minus fee)
+  maxSafeBorrowMusd: string; // most they can borrow at their safety level with the BTC entered (or all available)
+  // this loan
   feeMusd: string;
   liquidationDepositMusd: string;
   totalDebtMusd: string;
-  minBorrowMusd: string;
-  btcPrice: string;
-  ratio: number;              // collateral ratio in %, e.g. 165.2
-  liquidationPrice: string;   // BTC price at which the ratio hits Mezo's minimum
-  dropToLiquidation: number;  // % BTC can fall before liquidation
-  minRatio: number;           // Mezo's minimum right now (MCR, or CCR in recovery mode)
-  safeRatio: number;          // below this we require an explicit risk acknowledgement
-  recoveryMode: boolean;
-  risky: boolean;
-  suggestion?: { collateralBtc: string; borrowMusd: string; note?: string };
+  ratio: number;
+  liquidationPrice: string;
+  dropToLiquidation: number;
+  needBtcMin: string;        // BTC needed for this loan at Mezo's minimum
+  needBtcSafe: string;       // BTC needed for this loan at the user's safety level
   tx?: { to: Address; data: `0x${string}`; value: string };
 }
 
-export const SAFE_RATIO = 150;
-const GAS_RESERVE = 10n ** 15n; // keep 0.001 BTC for gas
+const OPEN_TROVE_GAS = 700_000n;  // measured ~590k on testnet, plus headroom
 
-/** Quote and build an openTrove tx. Collateral is native BTC sent as msg.value. */
-export async function quoteBorrow(borrower: Address, collateralBtc: string, borrowMusd: string): Promise<BorrowQuote> {
+export async function quoteBorrow(borrower: Address, collateralBtc: string, borrowMusd: string, safeRatio = config.defaultThreshold): Promise<BorrowQuote> {
   const coll = parseUnits(collateralBtc || "0", 18);
   const debt = parseUnits(borrowMusd || "0", 18);
   const read = <T>(address: string, abi: any, functionName: string, args: unknown[] = []) =>
     publicClient.readContract({ address: address as Address, abi, functionName, args }) as Promise<T>;
 
-  const [minNet, gasComp, price, fee, status, mcrW, ccrW, balance] = await Promise.all([
+  const [minNet, gasComp, price, fee, unitFee, status, mcrW, ccrW, balance, gasPrice] = await Promise.all([
     read<bigint>(c.borrowerOperations, boAbi, "minNetDebt"),
     read<bigint>(c.troveManager, tmAbi, "MUSD_GAS_COMPENSATION"),
     read<bigint>(c.priceFeed, pfAbi, "fetchPrice"),
     read<bigint>(c.borrowerOperations, boAbi, "getBorrowingFee", [debt]),
+    read<bigint>(c.borrowerOperations, boAbi, "getBorrowingFee", [10n ** 18n]),   // fee per 1 MUSD
     read<number>(c.troveManager, tmAbi, "getTroveStatus", [borrower]),
     read<bigint>(c.troveManager, tmAbi, "MCR"),
     read<bigint>(c.troveManager, tmAbi, "CCR"),
     publicClient.getBalance({ address: borrower }),
+    publicClient.getGasPrice(),
   ]);
   const recoveryMode = await read<boolean>(c.troveManager, tmAbi, "checkRecoveryMode", [price]);
-  const pct = (w: bigint) => Number(w / 10n ** 14n) / 100;   // 1.1e18 -> 110
-  const minRatio = recoveryMode ? pct(ccrW) : pct(mcrW);
-  const safeRatio = Math.max(SAFE_RATIO, minRatio + 10);
-  const total = debt + fee + gasComp;
-  const ratio = total > 0n ? Number((coll * price * 10000n) / (total * 10n ** 18n)) / 100 : 0;
+  const E18 = 10n ** 18n;
+  const pct = (w: bigint) => Number(w / 10n ** 14n) / 100;            // 1.1e18 -> 110
   const minW = recoveryMode ? ccrW : mcrW;
+  const minRatio = pct(minW);
+  const safe = Math.max(safeRatio, minRatio);
+  const safeW = BigInt(Math.round(safe * 100)) * 10n ** 14n;
+  const gasReserve = gasPrice * OPEN_TROVE_GAS * 2n;                  // 2x: price swings + one follow-up tx
+  const available = balance > gasReserve ? balance - gasReserve : 0n;
+
+  const total = debt + fee + gasComp;
+  const ratio = total > 0n && coll > 0n ? Number((coll * price * 10000n) / (total * E18)) / 100 : 0;
   const liq = coll > 0n ? (total * minW) / coll : 0n;
-  const dropToLiquidation = liq > 0n && price > liq ? Number(((price - liq) * 10000n) / price) / 100 : 0;
+  const drop = liq > 0n && price > liq ? Number(((price - liq) * 10000n) / price) / 100 : 0;
+  const needFor = (w: bigint) => (total * w + price - 1n) / price;    // BTC so that coll*price/total >= w
+  const needMin = debt > 0n ? needFor(minW) : 0n;
+  const needSafe = debt > 0n ? needFor(safeW) : 0n;
+  // Max borrow at the safety level for the BTC entered (or everything available), net of fee
+  const base = coll > 0n ? coll : available;
+  const grossMax = (base * price) / safeW;
+  const maxSafe = grossMax > gasComp ? ((grossMax - gasComp) * E18) / (E18 + unitFee) : 0n;
+  const minInput = (minNet * E18 + (E18 + unitFee) - 1n) / (E18 + unitFee);
 
-  // Suggest: deposit everything except a gas reserve, borrow what keeps the ratio at the safe level.
-  const sColl = balance > GAS_RESERVE ? balance - GAS_RESERVE : 0n;
-  const feeRate = debt > 0n ? Number(fee * 10n ** 6n / debt) / 1e6 : 0.001;
-  const sDebtNum = (Number(formatUnits(sColl * price / 10n ** 18n, 18)) * 100 / safeRatio - Number(formatUnits(gasComp, 18))) / (1 + feeRate);
-  const minDebtNum = Math.ceil(Number(formatUnits(minNet, 18)) / (1 + feeRate));
-  // BTC needed so the smallest loan sits at the safe ratio: (minNet + gasComp) * safe% / price
-  const safeCollForMin = ((minNet + gasComp) * BigInt(Math.round(safeRatio * 100)) * 10n ** 18n) / (price * 10000n) + GAS_RESERVE;
-  const suggestion = sDebtNum >= minDebtNum
-    ? { collateralBtc: Number(formatUnits(sColl, 18)).toFixed(6), borrowMusd: String(Math.floor(sDebtNum)) }
-    : { collateralBtc: Number(formatUnits(sColl, 18)).toFixed(6), borrowMusd: String(minDebtNum),
-        note: `Mezo's smallest loan is ${Number(formatUnits(minNet, 18)).toLocaleString("en-US")} MUSD including the fee (borrow ${minDebtNum.toLocaleString("en-US")}). To borrow it at a safe ${safeRatio}% you need about ${Number(formatUnits(safeCollForMin, 18)).toFixed(4)} BTC; you have ${Number(formatUnits(balance, 18)).toFixed(4)}.` };
-
+  const B = (w: bigint, d = 4) => (w > 0n && Number(formatUnits(w, 18)) < 10 ** -d ? `<${(10 ** -d).toFixed(d)}` : Number(formatUnits(w, 18)).toFixed(d));
+  const M = (w: bigint) => Math.floor(Number(formatUnits(w, 18))).toLocaleString("en-US");
   const q: BorrowQuote = {
-    ok: false,
-    collateralBtc, borrowMusd,
-    feeMusd: formatUnits(fee, 18),
-    liquidationDepositMusd: formatUnits(gasComp, 18),
-    totalDebtMusd: formatUnits(total, 18),
-    minBorrowMusd: formatUnits(minNet, 18),
-    btcPrice: formatUnits(price, 18),
-    ratio, liquidationPrice: formatUnits(liq, 18), dropToLiquidation,
-    minRatio, safeRatio, recoveryMode, risky: ratio < safeRatio, suggestion,
+    ok: false, collateralBtc, borrowMusd,
+    balanceBtc: formatUnits(balance, 18), gasReserveBtc: formatUnits(gasReserve, 18), availableBtc: formatUnits(available, 18),
+    btcPrice: formatUnits(price, 18), minRatio, safeRatio: safe, recoveryMode,
+    minLoanMusd: formatUnits(minNet, 18), minBorrowInput: String(Math.ceil(Number(formatUnits(minInput, 18)))),
+    maxSafeBorrowMusd: formatUnits(maxSafe, 18),
+    feeMusd: formatUnits(fee, 18), liquidationDepositMusd: formatUnits(gasComp, 18), totalDebtMusd: formatUnits(total, 18),
+    ratio, liquidationPrice: formatUnits(liq, 18), dropToLiquidation: drop,
+    needBtcMin: formatUnits(needMin, 18), needBtcSafe: formatUnits(needSafe, 18),
   };
-  if (status === 1) return { ...q, error: "This wallet already has an open Trove. Mezo allows one per wallet." };
-  if (coll === 0n) return { ...q, error: "Enter how much BTC to deposit." };
-  if (debt + fee < minNet) return { ...q, error: `The smallest loan is ${Number(formatUnits(minNet, 18)).toLocaleString()} MUSD (including the fee).` };
-  if (ratio < minRatio) return { ...q, error: `Ratio ${ratio}% is below Mezo's ${minRatio}% minimum${recoveryMode ? " (Mezo is in recovery mode)" : ""}. Add BTC or borrow less.` };
-  if (balance < coll + GAS_RESERVE) return { ...q, error: `You have ${Number(formatUnits(balance, 18)).toFixed(6)} BTC. Keep about 0.001 BTC for gas.` };
+  const fail = (error: string): BorrowQuote => ({ ...q, error });
+  if (status === 1) return fail("This wallet already has an open Trove. Mezo allows one per wallet.");
+  if (debt === 0n) return fail(`Enter how much MUSD to borrow. Mezo's minimum is ${M(minNet)} MUSD including the fee.`);
+  if (debt + fee < minNet) return fail(`Minimum loan is ${M(minNet)} MUSD including the fee. Enter at least ${q.minBorrowInput} MUSD.`);
+  if (coll === 0n) return fail(`Enter BTC to deposit. For ${M(debt)} MUSD you need at least ${B(needMin)} BTC (Mezo minimum ${minRatio}%), or ${B(needSafe)} BTC to stay at your ${safe}% safety level.`);
+  if (coll > available) return fail(`Insufficient BTC. You entered ${B(coll, 6)} BTC but can deposit up to ${B(available, 6)} (you have ${B(balance, 6)}; ${B(gasReserve, 6)} is kept for gas).`);
+  if (coll < needMin) return fail(`Not enough collateral. For ${M(debt)} MUSD you need at least ${B(needMin)} BTC (Mezo minimum ${minRatio}%${recoveryMode ? ", recovery mode" : ""}). You entered ${B(coll)}.`);
+  const warning = coll < needSafe
+    ? `This is below your ${safe}% safety level. If BTC drops ${drop}% (to $${Number(formatUnits(liq, 18)).toFixed(0)}) your BTC can be liquidated. ${B(needSafe)} BTC would keep you safe${needSafe > available ? ` (you can deposit up to ${B(available)})` : ""}.`
+    : undefined;
 
-  // Hints let SortedTroves insert the Trove cheaply. NICR = coll * 1e20 / totalDebt.
-  const nicr = (coll * 10n ** 20n) / total;
+  const nicr = (coll * 10n ** 20n) / total;     // NICR hint for SortedTroves
   const [approx] = await read<[Address, bigint, bigint]>(c.hintHelpers, hhAbi, "getApproxHint", [nicr, 15n, 42n]);
   const [upper, lower] = await read<[Address, Address]>(c.sortedTroves, stAbi, "findInsertPosition", [nicr, approx, approx]);
   const tx = { to: c.borrowerOperations as Address, value: coll.toString(),
     data: encodeFunctionData({ abi: boAbi, functionName: "openTrove", args: [debt, upper, lower] }) };
-  // Dry-run against the real contract so the user never signs something that would revert.
-  try { await publicClient.call({ account: borrower, to: tx.to, data: tx.data, value: coll }); }
-  catch (e) { return { ...q, error: `Mezo would reject this: ${(e as { shortMessage?: string }).shortMessage ?? (e as Error).message}` }; }
-  return { ...q, ok: true, tx };
+  try { await publicClient.call({ account: borrower, to: tx.to, data: tx.data, value: coll }); }   // dry-run on the real contract
+  catch (e) { return fail(`Mezo would reject this: ${(e as { shortMessage?: string }).shortMessage ?? (e as Error).message}`); }
+  return { ...q, ok: true, warning, tx };
 }

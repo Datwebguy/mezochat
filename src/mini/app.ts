@@ -191,47 +191,55 @@ async function payView(sid: string) {
 }
 
 async function borrowView() {
-  render(`<h1>Borrow MUSD</h1><p class="muted">Deposit BTC as collateral and borrow MUSD at Mezo's fixed rate.</p>
-  <div class="card"><label>Deposit BTC<input id="coll" inputmode="decimal"></label><label>Borrow MUSD<input id="debt" inputmode="decimal"></label>
-  <button id="suggest" class="secondary small">Use safe suggestion</button><div id="note" class="warn small-note hidden"></div></div>
-  <div class="card" id="quote">Calculating…</div>
+  render(`<h1>Borrow MUSD</h1><p class="muted">Deposit BTC as collateral and borrow MUSD. All numbers update live from Mezo as you type.</p>
+  <div class="card" id="wallet">Reading your wallet…</div>
+  <div class="card"><label>Borrow MUSD<input id="debt" inputmode="decimal" placeholder="Amount of MUSD"></label>
+  <label>Deposit BTC<input id="coll" inputmode="decimal" placeholder="Amount of BTC"></label>
+  <div class="fill"><button id="fillSafe" class="secondary small">BTC for safe level</button><button id="fillMax" class="secondary small">Max safe MUSD</button></div></div>
+  <div class="card" id="quote"></div>
   <label class="ack hidden" id="ackrow"><input type="checkbox" id="ack"> <span id="acktext"></span></label>
   <div class="card">${pinField()}</div><button id="go" disabled>Borrow</button><button id="back" class="secondary">Back</button><div id="msg" class="msg"></div>`);
   $("back").onclick = () => homeView();
   let q: any = null, t: any;
-  const n = (x: string | number, d = 2) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d });
-  const canGo = () => { $<HTMLButtonElement>("go").disabled = !(q?.ok && (!q.risky || $("ack").checked)); };
+  const n = (x: string | number, d = 2) => {
+    const v = Number(x);
+    return v > 0 && v < 10 ** -d ? `<${(10 ** -d).toFixed(d)}` : v.toLocaleString("en-US", { maximumFractionDigits: d });
+  };
+  const canGo = () => { $<HTMLButtonElement>("go").disabled = !(q?.ok && (!q.warning || $("ack").checked)); };
   const show = () => {
-    const cls = q.ratio >= q.safeRatio ? "good" : q.ratio >= q.minRatio ? "warn" : "bad";
-    $("quote").innerHTML = `<div class="row"><span>Collateral ratio</span><b class="${cls}">${q.ratio}%</b></div>
+    $("wallet").innerHTML = `<div class="row"><span>Your BTC</span><b>${n(q.balanceBtc, 6)}</b></div>
+      <div class="row"><span>Kept for gas (live gas price)</span><b>${n(q.gasReserveBtc, 6)}</b></div>
+      <div class="row"><span>Available to deposit</span><b>${n(q.availableBtc, 6)}</b></div>
       <div class="row"><span>BTC price now</span><b>$${n(q.btcPrice, 0)}</b></div>
+      <div class="row"><span>Mezo minimum ratio${q.recoveryMode ? " (recovery mode)" : ""}</span><b>${q.minRatio}%</b></div>
+      <div class="row"><span>Your safety level (/alert)</span><b>${q.safeRatio}%</b></div>
+      <div class="row"><span>Mezo minimum loan</span><b>${n(q.minLoanMusd, 0)} MUSD</b></div>`;
+    const hasLoan = Number(q.borrowMusd) > 0 && Number(q.collateralBtc) > 0;
+    const cls = q.ratio >= q.safeRatio ? "good" : q.ratio >= q.minRatio ? "warn" : "bad";
+    $("quote").innerHTML = (hasLoan ? `<div class="row"><span>Collateral ratio</span><b class="${cls}">${q.ratio}%</b></div>
       <div class="row"><span>Liquidated if BTC falls below</span><b class="${cls}">$${n(q.liquidationPrice, 0)}</b></div>
-      <div class="row"><span>BTC can drop before liquidation</span><b class="${cls}">${q.dropToLiquidation}%</b></div>
+      <div class="row"><span>BTC can drop before liquidation</span><b class="${cls}">${q.dropToLiquidation}%</b></div>` : "") +
+      (Number(q.borrowMusd) > 0 ? `<div class="row"><span>BTC needed (Mezo minimum)</span><b>${n(q.needBtcMin, 6)}</b></div>
+      <div class="row"><span>BTC needed (your safety level)</span><b>${n(q.needBtcSafe, 6)}</b></div>
       <div class="row"><span>Borrowing fee</span><b>${n(q.feeMusd)} MUSD</b></div>
       <div class="row"><span>Liquidation deposit (refunded)</span><b>${n(q.liquidationDepositMusd)} MUSD</b></div>
-      <div class="row"><span>Total debt</span><b>${n(q.totalDebtMusd)} MUSD</b></div>
-      <div class="muted">Mezo minimum: ${q.minRatio}%${q.recoveryMode ? " (recovery mode)" : ""} · safe: ${q.safeRatio}%+</div>
-      ${q.ok ? "" : `<div class="bad">${esc(q.error)}</div>`}`;
-    const risky = q.ok && q.risky;
-    $("ackrow").classList.toggle("hidden", !risky);
-    if (risky) $("acktext").textContent = `I understand this is below the safe ${q.safeRatio}%. If BTC drops ${q.dropToLiquidation}% (to $${n(q.liquidationPrice, 0)}) my BTC can be liquidated.`;
-    else $("ack").checked = false;
+      <div class="row"><span>Total debt</span><b>${n(q.totalDebtMusd)} MUSD</b></div>` : "") +
+      `<div class="row"><span>Max you can borrow safely${Number(q.collateralBtc) > 0 ? " with this BTC" : ""}</span><b>${n(q.maxSafeBorrowMusd, 0)} MUSD</b></div>` +
+      (q.error ? `<div class="bad">${esc(q.error)}</div>` : q.ok && !q.warning ? `<div class="good">✓ Ready to borrow.</div>` : "");
+    $("ackrow").classList.toggle("hidden", !q.warning);
+    if (q.warning) $("acktext").textContent = `I understand: ${q.warning}`; else $("ack").checked = false;
     canGo();
   };
   const fetchQuote = async () => {
-    q = await api(`/api/borrow/quote?address=${vault!.address}&coll=${encodeURIComponent($("coll").value || "0")}&debt=${encodeURIComponent($("debt").value || "0")}`);
+    q = await api(`/api/borrow/quote?address=${vault!.address}&coll=${encodeURIComponent($("coll").value || "0")}&debt=${encodeURIComponent($("debt").value || "0")}&tg=${encodeURIComponent(initData)}`);
     show();
   };
   const refresh = () => { clearTimeout(t); $<HTMLButtonElement>("go").disabled = true; t = setTimeout(() => fetchQuote().catch(e => { $("quote").textContent = (e as Error).message; }), 350); };
-  const applySuggestion = async () => {
-    if (!q) q = await api(`/api/borrow/quote?address=${vault!.address}&coll=0&debt=0`);
-    if (q.suggestion) { $("coll").value = q.suggestion.collateralBtc; $("debt").value = q.suggestion.borrowMusd; }
-    $("note").textContent = q.suggestion?.note ?? ""; $("note").classList.toggle("hidden", !q.suggestion?.note);
-    await fetchQuote();
-  };
   $("coll").oninput = refresh; $("debt").oninput = refresh; $("ack").onchange = canGo;
-  $("suggest").onclick = () => applySuggestion().catch(e => msg((e as Error).message, "err"));
-  try { await applySuggestion(); } catch (e) { $("quote").textContent = (e as Error).message; }
+  // Helpers only fill a box with a number computed from live data; the user stays in control.
+  $("fillSafe").onclick = () => { if (q && Number(q.needBtcSafe) > 0) { $("coll").value = Number(q.needBtcSafe).toFixed(6); refresh(); } else msg("Enter the MUSD amount first.", "err"); };
+  $("fillMax").onclick = () => { if (q) { $("debt").value = String(Math.floor(Number(q.maxSafeBorrowMusd))); refresh(); } };
+  try { await fetchQuote(); } catch (e) { $("wallet").textContent = (e as Error).message; }
   $("go").onclick = async () => {
     const btn = $<HTMLButtonElement>("go"); busy(btn, true, "Signing…"); msg("");
     try {
