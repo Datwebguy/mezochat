@@ -100,10 +100,12 @@ export function createBot() {
     const me = store.user(ctx.from!.id);
     const addr = me?.address;
     await ctx.reply(
-      "Free test funds (Mezo Testnet only, no real value):\n\n" +
-      "1. Testnet BTC: tap the faucet below, paste your address and complete the check. BTC pays gas.\n" +
-      "2. MUSD: open the Mezo testnet app, connect the same wallet, and Borrow MUSD against your testnet BTC.\n" +
-      (addr ? `\nYour address (tap to copy):\n\`${addr}\`` : "\nConnect your wallet first with /connect."),
+      "Free test funds (Mezo Testnet only, no real value)\n\n" +
+      "Step 1: Testnet BTC (pays gas, used as collateral)\n" +
+      "Tap \"Get testnet BTC\". On the Mezo Faucet page keep BTC selected, paste your address, tick \"Verify you are human\" and tap Request Tokens.\n\n" +
+      "Step 2: Test MUSD\n" +
+      "The faucet doesn't give MUSD. Tap \"Borrow test MUSD\" to open Mezo's testnet app, connect this same wallet, and borrow MUSD using your test BTC as collateral.\n" +
+      (addr ? `\nYour address (tap it to copy):\n\`${addr}\`` : "\nConnect your wallet first with /connect."),
       { parse_mode: "Markdown", reply_markup: kb([{ text: "Get testnet BTC", url: "https://faucet.test.mezo.org" }, { text: "Borrow test MUSD", url: "https://testnet.mezo.org" }]) });
   });
   bot.command("help", ctx => ctx.reply(HELP, { reply_markup: MENU }));

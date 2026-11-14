@@ -50,7 +50,7 @@ Type `/` in the chat for the menu. Plain sentences work too.
 | `/buy` | `/buy amazon 50` |
 | `/activity` | Last 7 days of receipts |
 | `/alert` | `/alert 160`, `/alert off` |
-| `/faucet` | Free testnet BTC (faucet) and how to borrow test MUSD (testnet only) |
+| `/faucet` | Testnet only: link to the Mezo Faucet (BTC) and steps to borrow test MUSD on testnet.mezo.org |
 | `/whois` | `/whois @alice`: wallet, verification and on-chain status |
 | `/connect` | Link a different wallet |
 
