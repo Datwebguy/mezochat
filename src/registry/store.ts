@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from "
 import { dirname } from "node:path";
 import { config } from "../config.js";
 
-export interface User { telegramId: number; handle: string; address: string; threshold: number; alerts: boolean; verified?: boolean; }
+export interface User { telegramId: number; handle: string; address: string; threshold: number; alerts: boolean; verified?: boolean; tgUsername?: string; }
 export interface Activity { id: string; ts: number; telegramId: number; kind: string; amount?: string; counterparty?: string; ratio?: number | null; tx?: string; note?: string; }
 export interface Request { id: string; from: number; to: number; amount: string; status: "open" | "paid" | "declined"; }
 export interface Split { id: string; owner: number; total: string; shares: { handle: string; amount: string; paid: boolean }[]; }
@@ -33,8 +33,15 @@ export const normalizeHandle = (h: string) => h.replace(/^@/, "").toLowerCase();
 
 export const store = {
   user(telegramId: number): User | undefined { load(); return db.users[telegramId]; },
+  /** MezoChat handle first, then the person's Telegram @username. */
   byHandle(handle: string): User | undefined {
-    load(); const id = db.handles[normalizeHandle(handle)]; return id ? db.users[id] : undefined;
+    load(); const h = normalizeHandle(handle);
+    const id = db.handles[h]; if (id) return db.users[id];
+    return Object.values(db.users).find(u => u.tgUsername === h);
+  },
+  setTgUsername(telegramId: number, username?: string) {
+    load(); const u = db.users[telegramId]; const v = username?.toLowerCase();
+    if (u && v && u.tgUsername !== v) { u.tgUsername = v; save(); }
   },
   register(telegramId: number, handle: string, address: string, verified = false): { ok: true } | { ok: false; reason: string } {
     load();

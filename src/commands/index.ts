@@ -72,11 +72,10 @@ export async function run(me: User, order: Order): Promise<Reply> {
       const state = h.ratio === null ? "No Trove open." : h.ratio >= me.threshold ? "All clear." : "⚠ Below your threshold.";
       const num = (x: string, d: number) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: Math.min(d, 2) });
       const lines = [
-        `💵 MUSD: ${num(w.musd, 2)}`,
-        `₿ BTC: ${num(w.btc, 6)}${Number(w.btc) === 0 ? " (you need some for gas)" : ""}`,
-        ...(w.mezo !== null ? [`Ⓜ MEZO: ${num(w.mezo, 2)}`] : []),
-        ``,
+        `MUSD balance: ${num(w.musd, 2)}`,
         `Trove ratio: ${fmtRatio(h.ratio)}. ${state}`,
+        ``,
+        Number(w.btc) === 0 ? `⚠ No BTC for gas. You need a little to send MUSD (/faucet on testnet).` : `Gas: ${num(w.btc, 6)} BTC`,
       ];
       return { text: lines.join("\n") };
     }
@@ -88,9 +87,11 @@ export async function run(me: User, order: Order): Promise<Reply> {
     case "send": {
       if (!valid(order.amount)) return { text: "Enter an amount above 0." };
       const r = resolve(order.to) ?? await resolveChainOnly(order.to);
-      if (!r) return { text: `I don't know ${order.to}. Use a claimed @handle or a 0x address.` };
-      const g = await ratioGate(me);
+      if (!r) return { text: `I can't find ${order.to}. Send to a MezoChat @username or a 0x wallet address.` };
+      const [g, w] = await Promise.all([ratioGate(me), getWallet(me.address as Address)]);
       if (!g.ok) return { text: `✗ ${g.reason}` };
+      if (Number(w.musd) < num(order.amount)) return { text: `✗ Not enough MUSD. You have ${Number(w.musd).toFixed(2)} MUSD and tried to send ${order.amount}.` };
+      if (Number(w.btc) === 0) return { text: "✗ You need a little BTC for gas before you can send. On testnet, use /faucet." };
       const id = pid();
       pending.set(id, { to: r.address, label: r.label, amount: order.amount, owner: me.telegramId });
       return { text: `Confirm send ${order.amount} MUSD to ${r.label} (${r.address})? Current ratio ${fmtRatio(g.ratio)}.`,

@@ -34,19 +34,15 @@ const priceFeedAbi = [
 
 export const MUSD = c.musd as Address;
 
-/** MEZO token (same precompile address on mainnet and testnet). */
-export const MEZO_TOKEN = "0x7B7c000000000000000000000000000000000001" as Address;
+export interface Wallet { musd: string; btc: string }
 
-export interface Wallet { musd: string; btc: string; mezo: string | null }
-
-/** MUSD, native BTC (gas + collateral) and MEZO in one call. MEZO is null if it can't be read. */
+/** MUSD plus native BTC (needed for gas). */
 export async function getWallet(address: Address): Promise<Wallet> {
-  const [musd, btc, mezo] = await Promise.all([
+  const [musd, btc] = await Promise.all([
     publicClient.readContract({ address: MUSD, abi: musdAbi, functionName: "balanceOf", args: [address] }),
     publicClient.getBalance({ address }),
-    publicClient.readContract({ address: MEZO_TOKEN, abi: musdAbi, functionName: "balanceOf", args: [address] }).catch(() => null),
   ]);
-  return { musd: formatUnits(musd, 18), btc: formatUnits(btc, 18), mezo: mezo === null ? null : formatUnits(mezo, 18) };
+  return { musd: formatUnits(musd, 18), btc: formatUnits(btc, 18) };
 }
 
 export interface TroveHealth {

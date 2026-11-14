@@ -16,9 +16,9 @@ const onboarding = new Map<number, Step>();
 
 const MENU = new Keyboard().text("Balance").text("Health").row().text("Activity").text("Help").resized().persistent();
 const HELP = `Things you can say:
-• balance: your MUSD, BTC and MEZO
+• balance: your MUSD and Trove ratio
 • health: Trove collateral and ratio
-• send 25 to @alice
+• send 25 to @alice  (or to a 0x address)
 • request 40 from @bob
 • split 120 with @alice @bob
 • pay 800 to @landlord on the 1st if ratio > 160
@@ -34,10 +34,10 @@ Or type / to pick a command.
 
 /** Slash commands: shown in Telegram's "/" menu. Usage is the hint sent when the command has no details. */
 const COMMANDS: { command: string; description: string; usage?: string }[] = [
-  { command: "balance", description: "Check your MUSD, BTC and MEZO balances" },
+  { command: "balance", description: "Your MUSD balance and Trove ratio" },
   { command: "health", description: "Collateral, debt and ratio details" },
-  { command: "send", description: "Send MUSD", usage: "/send 25 to @alice" },
-  { command: "request", description: "Request MUSD", usage: "/request 40 from @bob" },
+  { command: "send", description: "Send MUSD to a @username or 0x address", usage: "/send 25 to @alice\n/send 25 to 0x1234…abcd" },
+  { command: "request", description: "Request MUSD from a @username", usage: "/request 40 from @bob" },
   { command: "split", description: "Split a bill", usage: "/split 120 with @alice @bob" },
   { command: "pay", description: "Ratio-gated recurring payment", usage: "/pay 800 to @landlord on the 1st if ratio > 160" },
   { command: "buy", description: "Spend via Mezo Market / Bitrefill", usage: "/buy amazon 50" },
@@ -189,6 +189,7 @@ export function createBot() {
 
     const me = store.user(id);
     if (!me) return startConnect(id);
+    store.setTgUsername(id, ctx.from.username);
     let input = text;
     if (text.startsWith("/")) {
       const sl = fromSlash(text);

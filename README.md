@@ -39,9 +39,9 @@ Type `/` in the chat for the menu. Plain sentences work too.
 
 | Command | Example |
 |---|---|
-| `/balance` | MUSD, BTC and MEZO balances plus Trove ratio |
+| `/balance` | MUSD balance, Trove ratio, and BTC left for gas |
 | `/health` | Collateral, debt, BTC price, ratio |
-| `/send` | `/send 25 to @alice` |
+| `/send` | `/send 25 to @alice` or `/send 25 to 0x…`. Works with a MezoChat handle, a Telegram @username or a wallet address. |
 | `/request` | `/request 40 from @bob` |
 | `/split` | `/split 120 with @alice @bob` |
 | `/pay` | `/pay 800 to @landlord on the 1st if ratio > 160` |
