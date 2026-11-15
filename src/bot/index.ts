@@ -9,7 +9,8 @@ import { getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { txWaitMs } from "../runtime.js";
 import { claimOnChain, handleOfOnChain, registryEnabled, registryReadable, resolveOnChain } from "../mezo/registry.js";
 import { PRODUCTS, catalog, marketItemUrl, storeAddress } from "../mezo/market.js";
-import { TEST_PRODUCT, bitrefill, buyGiftCard, giftCard, satsToUsd, searchGiftCards } from "../mezo/bitrefill.js";
+import { TEST_PRODUCT, availableUsd, bitrefill, buyGiftCard, giftCard, musdPrice, satsToUsd, searchGiftCards } from "../mezo/bitrefill.js";
+import type { GiftOrder } from "../web/sessions.js";
 import { store, normalizeHandle, storedMap } from "../registry/store.js";
 import { createSession, verifyMessage, type Session } from "../web/sessions.js";
 import type { WebHooks } from "../web/server.js";
@@ -123,7 +124,8 @@ export function createBot() {
   // ---------- Bitrefill gift cards with the code delivered in chat ----------
   const giftPick = storedMap<string, { owner: number; productId: string; packageId?: string; value?: string; currency?: string; priceSats?: number; name?: string }>("gift");
   const gid = () => Math.random().toString(36).slice(2, 10);
-  const giftAllowed = (u?: { handle: string }) => !!u && bitrefill.enabled() && (!bitrefill.ownerHandle() || u.handle === bitrefill.ownerHandle());
+  // Paid mode (mainnet): everyone, paying in MUSD. Otherwise: the operator only, from the Bitrefill balance.
+  const giftAllowed = (u?: { handle: string }) => !!u && bitrefill.enabled() && (bitrefill.paid() || !bitrefill.ownerHandle() || u.handle === bitrefill.ownerHandle());
   bot.command("giftcard", async ctx => {
     const me = store.user(ctx.from!.id);
     if (!me) return ctx.reply("Connect your wallet first with /start.");
@@ -191,9 +193,23 @@ export function createBot() {
         }
         const test = pick.productId === TEST_PRODUCT;
         const usd = test ? 0 : await satsToUsd(pick.priceSats ?? 0);
+        const paid = bitrefill.paid() && !test;
         if (kind === "gk") {
+          if (paid) {
+            const price = musdPrice(usd);
+            return ctx.editMessageText(`🎁 ${pick.name}: ${pick.value} ${pick.currency}\nPrice: ${price} MUSD\nPay with MUSD and the code arrives here in seconds.`,
+              { reply_markup: new InlineKeyboard().text(`Pay ${price} MUSD`, `gb:${a}`).text("Cancel", "cancel") });
+          }
           return ctx.editMessageText(`🎁 ${pick.name}: ${pick.value} ${pick.currency}\n${test ? "Free demo card." : `Cost ≈ $${usd.toFixed(2)}`}\nBuy it now? The code arrives here in seconds.`,
             { reply_markup: new InlineKeyboard().text("Buy now", `gb:${a}`).text("Cancel", "cancel") });
+        }
+        if (paid) {
+          // Only take payment when the card can be delivered right away.
+          if ((await availableUsd()) < usd) return ctx.editMessageText(`🎁 ${pick.name} is restocking. Please try again soon, or pick a smaller amount.`);
+          giftPick.delete(a);
+          const order: GiftOrder = { productId: pick.productId, packageId: pick.packageId!, name: pick.name!, value: pick.value!, currency: pick.currency! };
+          await ctx.editMessageReplyMarkup();
+          return send(ctx.chat!.id, await payFlow(me, bitrefill.treasury(), "MezoChat gift cards", musdPrice(usd), "giftcard", undefined, order));
         }
         // gb: buy, within the daily budget (the free test card doesn't count)
         const day = `giftusd:${new Date().toISOString().slice(0, 10)}`;
@@ -374,6 +390,21 @@ export function createBot() {
         }
       }
       await bot.api.sendMessage(s.telegramId, `${receipt(s.action, s.amount, s.label, s.ratio, hash)}\n${txUrl(hash)}`);
+      if (s.gift) {
+        // Payment confirmed on-chain: buy the card and deliver the code.
+        const g = s.gift;
+        try {
+          const r = await buyGiftCard(g.productId, g.packageId);
+          store.log({ telegramId: s.telegramId, kind: "giftcard", amount: `${g.value} ${g.currency}`, counterparty: g.name, tx: `bitrefill:${r.orderId}` });
+          await bot.api.sendMessage(s.telegramId, `✓ ${g.name} ${g.value} ${g.currency}\n\n🎁 Your code:\n\`${r.code}\`\n\n${r.instructions ?? ""}${r.other ? `\n${r.other}` : ""}\n\nBitrefill order ${r.orderId}`, { parse_mode: "Markdown" });
+        } catch (e) {
+          store.log({ telegramId: s.telegramId, kind: "giftcard_pending", amount: s.amount, counterparty: g.name, tx: hash, note: (e as Error).message });
+          await bot.api.sendMessage(s.telegramId, `Your payment of ${s.amount} MUSD is confirmed. Your ${g.name} code is being prepared and our team will deliver it to you here shortly. Reference: ${hash.slice(0, 10)}`);
+          const op = bitrefill.ownerHandle() ? store.byHandle(bitrefill.ownerHandle()) : undefined;
+          if (op) await bot.api.sendMessage(op.telegramId, `⚠ Gift card to deliver manually: @${me.handle} paid ${s.amount} MUSD for ${g.name} ${g.value} ${g.currency}. Tx ${txUrl(hash)}. Bitrefill said: ${(e as Error).message}`).catch(() => {});
+        }
+        return;
+      }
       const recipient = store.allUsers().find(u => u.address.toLowerCase() === s.to.toLowerCase());
       if (recipient && recipient.telegramId !== s.telegramId)
         await bot.api.sendMessage(recipient.telegramId, `✓ Received ${s.amount} MUSD from @${me.handle}.\n${txUrl(hash)}`).catch(() => {});

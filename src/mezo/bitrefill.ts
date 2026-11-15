@@ -12,7 +12,22 @@ export const bitrefill = {
   ownerHandle: () => (process.env.BITREFILL_OWNER_HANDLE ?? "").replace(/^@/, "").toLowerCase(),
   dailyUsd: () => Number(process.env.BITREFILL_DAILY_USD ?? "10"),
   enabled: () => !!process.env.BITREFILL_API_KEY,
+  /** Paid mode (mainnet): anyone can buy; they pay the card's price in MUSD to the treasury first. */
+  paid: () => process.env.GIFT_PAID === "1" || (config.network === "mainnet" && !!process.env.GIFT_TREASURY),
+  treasury: () => (process.env.GIFT_TREASURY ?? "") as Address,
+  marginPct: () => Number(process.env.GIFT_MARGIN_PCT ?? "2"),
 };
+
+/** MUSD a buyer pays for a card worth `usd` (MUSD is pegged to USD), including the margin, rounded up to the cent. */
+export const musdPrice = (usd: number) => (Math.ceil(usd * (1 + bitrefill.marginPct() / 100) * 100) / 100).toFixed(2);
+
+/** USD value of the operator's Bitrefill balance (BTC part valued at Mezo's live BTC price, plus any USD). */
+export async function availableUsd(): Promise<number> {
+  const b = await balance();
+  const btc = b.balances.find(x => x.currency === "BTC")?.balance ?? 0;
+  const usd = b.balances.find(x => x.currency === "USD")?.balance ?? 0;
+  return (btc > 0 ? await satsToUsd(btc * 1e8) : 0) + usd;
+}
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(BASE + path, { ...init, signal: AbortSignal.timeout(25_000),

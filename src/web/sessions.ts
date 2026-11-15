@@ -4,7 +4,10 @@ import { store } from "../registry/store.js";
 export type Session =
   | { id: string; kind: "verify"; telegramId: number; message: string; created: number; done?: boolean }
   | { id: string; kind: "pay"; telegramId: number; to: string; label: string; amount: string; action: string;
-      ratio: number | null; split?: { id: string; handle: string }; created: number; done?: boolean };
+      ratio: number | null; split?: { id: string; handle: string }; gift?: GiftOrder; created: number; done?: boolean };
+
+/** A gift card to buy once the MUSD payment is confirmed on-chain. */
+export interface GiftOrder { productId: string; packageId: string; name: string; value: string; currency: string }
 
 const TTL = 30 * 60 * 1000;
 

@@ -6,7 +6,7 @@ import { store, normalizeHandle, storedMap, type User } from "../registry/store.
 import { config, web } from "../config.js";
 import { registryReadable, resolveOnChain } from "../mezo/registry.js";
 import { catalog, storeAddress } from "../mezo/market.js";
-import { createSession } from "../web/sessions.js";
+import { createSession, type GiftOrder } from "../web/sessions.js";
 
 /** One button that opens the signer page; the page then offers MetaMask, Trust, Coinbase, OKX or any wallet browser. */
 export function signButtons(sessionId: string, label: string): Button[] {
@@ -47,15 +47,16 @@ function resolve(target: string): { address: Address; label: string; user?: User
 }
 
 /** Pay flow shared by send / request-pay / split-pay / recurring. Gate first, then the user signs in their wallet. */
-export async function payFlow(me: User, to: Address, label: string, amount: string, kind: string, split?: { id: string; handle: string }): Promise<Reply> {
+export async function payFlow(me: User, to: Address, label: string, amount: string, kind: string, split?: { id: string; handle: string }, gift?: GiftOrder): Promise<Reply> {
   const gate = await ratioGate(me);
   if (!gate.ok) {
     store.log({ telegramId: me.telegramId, kind: `${kind}_refused`, amount, counterparty: label, ratio: gate.ratio });
     return { text: `✗ Not sent. ${gate.reason}\nAdd collateral or repay debt, or lower your threshold with "set alert N".` };
   }
-  const action = kind === "send" ? "Send" : kind === "split" ? "Split share" : kind === "recurring" ? "Recurring payment" : "Payment";
+  const action = kind === "send" ? "Send" : kind === "split" ? "Split share" : kind === "recurring" ? "Recurring payment" : kind === "giftcard" ? "Gift card" : "Payment";
+  if (gift && !web.publicUrl) return { text: "Gift card payments need the MezoChat wallet page, which isn't configured on this server." };
   if (web.publicUrl) {
-    const s = createSession({ kind: "pay", telegramId: me.telegramId, to, label, amount, action, ratio: gate.ratio, split });
+    const s = createSession({ kind: "pay", telegramId: me.telegramId, to, label, amount, action, ratio: gate.ratio, split, gift });
     const buttons: Button[] = me.wallet === "mini"
       ? [{ text: `Pay ${amount} MUSD`, webApp: `${web.publicUrl}/mini?s=${s.id}` }]
       : signButtons(s.id, `Sign ${amount} MUSD`);
