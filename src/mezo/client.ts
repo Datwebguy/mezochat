@@ -26,6 +26,9 @@ const troveManagerAbi = [
   { type: "function", name: "getTroveStatus", stateMutability: "view", inputs: [{ name: "b", type: "address" }], outputs: [{ type: "uint8" }] },
   { type: "function", name: "getTroveDebt", stateMutability: "view", inputs: [{ name: "b", type: "address" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "getTroveColl", stateMutability: "view", inputs: [{ name: "b", type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "MCR", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "CCR", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "checkRecoveryMode", stateMutability: "view", inputs: [{ name: "p", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;
 
 const priceFeedAbi = [
@@ -56,6 +59,8 @@ export interface TroveHealth {
   collateralBtc: string;
   debtMusd: string;
   btcPrice: string;
+  /** Mezo's current liquidation line in % (MCR, or CCR while the system is in recovery mode), read from TroveManager. */
+  minRatio: number;
 }
 
 export async function getBalance(address: Address): Promise<string> {
@@ -65,12 +70,16 @@ export async function getBalance(address: Address): Promise<string> {
 
 export async function getTroveHealth(address: Address): Promise<TroveHealth> {
   const tm = c.troveManager as Address;
-  const [status, price] = await Promise.all([
+  const [status, price, mcr, ccr] = await Promise.all([
     publicClient.readContract({ address: tm, abi: troveManagerAbi, functionName: "getTroveStatus", args: [address] }),
     publicClient.readContract({ address: c.priceFeed as Address, abi: priceFeedAbi, functionName: "fetchPrice" }),
+    publicClient.readContract({ address: tm, abi: troveManagerAbi, functionName: "MCR" }),
+    publicClient.readContract({ address: tm, abi: troveManagerAbi, functionName: "CCR" }),
   ]);
+  const recovery = await publicClient.readContract({ address: tm, abi: troveManagerAbi, functionName: "checkRecoveryMode", args: [price] });
+  const minRatio = Number((recovery ? ccr : mcr) / 10n ** 14n) / 100;
   const btcPrice = formatUnits(price, 18);
-  if (status !== 1) return { hasTrove: false, ratio: null, collateralBtc: "0", debtMusd: "0", btcPrice };
+  if (status !== 1) return { hasTrove: false, ratio: null, collateralBtc: "0", debtMusd: "0", btcPrice, minRatio };
   const [icr, debt, coll] = await Promise.all([
     publicClient.readContract({ address: tm, abi: troveManagerAbi, functionName: "getCurrentICR", args: [address, price] }),
     publicClient.readContract({ address: tm, abi: troveManagerAbi, functionName: "getTroveDebt", args: [address] }),
@@ -82,6 +91,7 @@ export async function getTroveHealth(address: Address): Promise<TroveHealth> {
     collateralBtc: formatUnits(coll, 18),
     debtMusd: formatUnits(debt, 18),
     btcPrice,
+    minRatio,
   };
 }
 

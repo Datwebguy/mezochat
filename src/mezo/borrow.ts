@@ -52,7 +52,8 @@ export interface BorrowQuote {
   tx?: { to: Address; data: `0x${string}`; value: string };
 }
 
-const OPEN_TROVE_GAS = 700_000n;  // measured ~590k on testnet, plus headroom
+/** Typical openTrove gas, only used to show "kept for gas" before the exact transaction exists; the real estimate is checked later. */
+const OPEN_TROVE_GAS = 700_000n;
 
 export async function quoteBorrow(borrower: Address, collateralBtc: string, borrowMusd: string, safeRatio = config.defaultThreshold): Promise<BorrowQuote> {
   const coll = parseUnits(collateralBtc || "0", 18);
@@ -123,7 +124,11 @@ export async function quoteBorrow(borrower: Address, collateralBtc: string, borr
   const [upper, lower] = await read<[Address, Address]>(c.sortedTroves, stAbi, "findInsertPosition", [nicr, approx, approx]);
   const tx = { to: c.borrowerOperations as Address, value: coll.toString(),
     data: encodeFunctionData({ abi: boAbi, functionName: "openTrove", args: [debt, upper, lower] }) };
-  try { await publicClient.call({ account: borrower, to: tx.to, data: tx.data, value: coll }); }   // dry-run on the real contract
+  // Dry-run on the real contract via a live gas estimate (it reverts exactly when Mezo would reject the tx),
+  // then make sure the wallet also covers the real gas cost on top of the collateral.
+  let gas: bigint;
+  try { gas = await publicClient.estimateGas({ account: borrower, to: tx.to, data: tx.data, value: coll }); }
   catch (e) { return fail(`Mezo would reject this: ${(e as { shortMessage?: string }).shortMessage ?? (e as Error).message}`); }
+  if (balance < coll + gas * gasPrice) return fail(`Insufficient BTC for gas. You need ${B(coll + gas * gasPrice, 8)} BTC including gas; you have ${B(balance, 8)}.`);
   return { ...q, ok: true, warning, tx };
 }

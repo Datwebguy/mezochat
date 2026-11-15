@@ -89,7 +89,7 @@ export async function run(me: User, order: Order): Promise<Reply> {
     case "health": {
       const h = await getTroveHealth(me.address as Address);
       if (!h.hasTrove) return { text: "No active Trove for this address." };
-      return { text: `Collateral: ${Number(h.collateralBtc).toFixed(6)} BTC\nDebt: ${Number(h.debtMusd).toFixed(2)} MUSD\nBTC price: $${Number(h.btcPrice).toFixed(2)}\nRatio: ${h.ratio}% (your threshold ${me.threshold}%, liquidation below 110%)` };
+      return { text: `Collateral: ${Number(h.collateralBtc).toFixed(6)} BTC\nDebt: ${Number(h.debtMusd).toFixed(2)} MUSD\nBTC price: $${Number(h.btcPrice).toFixed(2)}\nRatio: ${h.ratio}% (your threshold ${me.threshold}%, Mezo liquidates below ${h.minRatio}%)` };
     }
     case "send": {
       if (!valid(order.amount)) return { text: "Enter an amount above 0." };

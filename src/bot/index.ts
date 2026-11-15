@@ -8,7 +8,7 @@ import { config, web } from "../config.js";
 import { getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { txWaitMs } from "../runtime.js";
 import { claimOnChain, handleOfOnChain, registryEnabled, registryReadable, resolveOnChain } from "../mezo/registry.js";
-import { PRODUCTS, catalog, marketItemUrl, storeAddress } from "../mezo/market.js";
+import { catalog, marketItemUrl, productInfo, storeAddress } from "../mezo/market.js";
 import { TEST_PRODUCT, availableUsd, bitrefill, buyGiftCard, giftCard, musdPrice, satsToUsd, searchGiftCards } from "../mezo/bitrefill.js";
 import type { GiftOrder } from "../web/sessions.js";
 import { store, normalizeHandle, storedMap } from "../registry/store.js";
@@ -340,7 +340,7 @@ export function createBot() {
         const h = await getTroveHealth(rc.from);
         store.log({ telegramId, kind: "borrow", amount: debt, counterparty: `${coll} BTC collateral`, ratio: h.ratio, tx: hash });
         await bot.api.sendMessage(telegramId, `✓ Borrowed ${debt} MUSD\nCollateral: ${coll} BTC\nTrove ratio: ${fmtRatio(h.ratio)}\nTx: ${txUrl(hash)}`);
-        if (h.ratio !== null && h.ratio < (store.user(telegramId)?.threshold ?? 150))
+        if (h.ratio !== null && h.ratio < (store.user(telegramId)?.threshold ?? config.defaultThreshold))
           await bot.api.sendMessage(telegramId, `Heads up: your ratio is below your ${store.user(telegramId)?.threshold}% safety threshold, so sends will be blocked. Add BTC, or lower it with /alert ${Math.floor(h.ratio) - 2}.`);
       } catch (e) { await bot.api.sendMessage(telegramId, `✗ Borrow didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
     },
@@ -351,7 +351,7 @@ export function createBot() {
       return step?.s === "handle" ? { address: step.address, hasHandle: false } : null;
     },
     async onMarketTx(telegramId, hash, productId) {
-      const p = PRODUCTS.find(x => x.id === productId);
+      const p = productInfo(productId);
       await bot.api.sendMessage(telegramId, `⏳ Buying ${p?.name ?? "item"} on Mezo Market. Waiting for confirmation…`).catch(() => {});
       try {
         const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: txWaitMs() });
@@ -435,7 +435,7 @@ export function createBot() {
         const g = await ratioGate(u);
         let text: string | null = null;
         if (!g.ok) text = `⚠ ${g.reason} Add BTC with /loan to get safer.`;
-        else if (g.ratio !== null && g.ratio < 120) text = `🚨 Ratio ${g.ratio}% is close to liquidation (110%). Add BTC with /loan or repay now.`;
+        else if (g.ratio !== null && g.ratio < g.health.minRatio + 10) text = `🚨 Ratio ${g.ratio}% is close to Mezo's ${g.health.minRatio}% liquidation line. Add BTC with /loan or repay now.`;
         if (text) { await bot.api.sendMessage(u.telegramId, text); store.setMeta(`alert:${u.telegramId}`, Date.now()); }
       } catch { /* RPC hiccup; try next tick */ }
     }

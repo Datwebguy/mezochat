@@ -164,9 +164,9 @@ async function homeView() {
   } catch { const bal = document.getElementById("bal"); if (bal) bal.textContent = "Couldn't load balances."; }
   // An open loan replaces the Borrow button (Mezo allows one Trove per wallet).
   try {
-    const t = await api(`/api/trove/quote?address=${a}&action=view`);
+    const t = await api(`/api/trove/quote?address=${a}&action=view&tg=${encodeURIComponent(initData)}`);
     const loan = document.getElementById("loan"); if (!loan || !t.hasTrove) return;
-    const cls = t.ratio >= 150 ? "good" : t.ratio >= t.minRatio + 10 ? "warn" : "bad";
+    const cls = t.ratio >= t.safeRatio ? "good" : t.ratio >= t.minRatio + 10 ? "warn" : "bad";   // user's own /alert level
     loan.innerHTML = `<div class="row"><span>Your loan</span><b class="${cls}">${t.ratio}%</b></div>
       <div class="row"><span>Debt</span><b>${Number(t.debtMusd).toLocaleString("en-US", { maximumFractionDigits: 2 })} MUSD</b></div>
       <div class="row"><span>Collateral</span><b>${Number(t.collateralBtc).toFixed(6)} BTC</b></div>

@@ -13,18 +13,38 @@ export const STORE: Record<string, Address | undefined> = {
 };
 export const storeAddress = () => (process.env.MEZO_STORE_ADDRESS as Address | undefined) || STORE[config.network];
 /** Mezo Market's own page for an item, where the buyer reveals their redemption code after signing in. */
-export const marketItemUrl = (p: ProductInfo) => `https://${config.network === "testnet" ? "testnet." : ""}mezo.org/market/items/${p.page}`;
+export const marketItemUrl = (p: ProductInfo) => `https://${config.network === "testnet" ? "testnet." : ""}mezo.org/market${p.page ? `/items/${p.page}` : ""}`;
 
-export interface ProductInfo { id: number; name: string; kind: "gift-card" | "hardware"; redeem: string; page: string }
-export const PRODUCTS: ProductInfo[] = [
-  { id: 1003, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
-  { id: 1004, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
-  { id: 1005, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
-  { id: 1006, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
-  { id: 1007, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
-  { id: 1001, name: "Ledger Nano X (Mezo Edition)", kind: "hardware", redeem: "Ledger.com", page: "ledger-nano-x" },
-  { id: 1002, name: "Ledger Stax (Mezo Edition)", kind: "hardware", redeem: "Ledger.com", page: "ledger-stax" },
-];
+export interface ProductInfo { id: number; name: string; kind: "gift-card" | "hardware" | "item"; redeem: string; page: string }
+
+/**
+ * Display labels, mirrored from Mezo Market's own catalog (the Store contract stores prices and stock, not names).
+ * Which products exist is NOT taken from here: it is discovered on-chain (see discoverProductIds).
+ */
+const LABELS: Record<number, Omit<ProductInfo, "id">> = {
+  1001: { name: "Ledger Nano X (Mezo Edition)", kind: "hardware", redeem: "Ledger.com", page: "ledger-nano-x" },
+  1002: { name: "Ledger Stax (Mezo Edition)", kind: "hardware", redeem: "Ledger.com", page: "ledger-stax" },
+  ...Object.fromEntries([1003, 1004, 1005, 1006, 1007].map(id =>
+    [id, { name: "Bitrefill gift card", kind: "gift-card" as const, redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" }])),
+};
+/** Label for any Store product; products Mezo adds later still show, with a generic name linking to the Market. */
+export const productInfo = (id: number): ProductInfo =>
+  ({ id, ...(LABELS[id] ?? { name: `Mezo Market item #${id}`, kind: "item", redeem: "Mezo Market", page: "" }) });
+
+/** Product IDs that currently exist in the Store (price > 0), found by asking the contract. Cached for 10 minutes. */
+let idCache: { at: number; ids: number[] } | null = null;
+export async function discoverProductIds(): Promise<number[]> {
+  if (idCache && Date.now() - idCache.at < 10 * 60_000) return idCache.ids;
+  const store = storeAddress(); if (!store) return [];
+  const [from, to] = (process.env.MARKET_ID_RANGE ?? "1000-1063").split("-").map(Number);
+  const ids = Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  const found = await Promise.all(ids.map(async id => {
+    try { const d = await publicClient.readContract({ address: store, abi: storeAbi, functionName: "getProductDetails", args: [id] }); return d.price > 0n ? id : null; }
+    catch { return null; }
+  }));
+  idCache = { at: Date.now(), ids: found.filter((x): x is number => x !== null) };
+  return idCache.ids;
+}
 
 const storeAbi = [
   { type: "function", name: "getProductDetails", stateMutability: "view", inputs: [{ name: "productId", type: "uint32" }],
@@ -44,11 +64,14 @@ export interface CatalogItem extends ProductInfo { priceMusd: string; stock: num
 /** Live catalog: every price and stock number comes from the Store contract. */
 export async function catalog(): Promise<CatalogItem[]> {
   const store = storeAddress(); if (!store) return [];
-  const rows = await Promise.all(PRODUCTS.map(async p => {
-    const d = await publicClient.readContract({ address: store, abi: storeAbi, functionName: "getProductDetails", args: [p.id] });
+  const ids = await discoverProductIds();
+  const rows = await Promise.all(ids.map(async id => {
+    const p = productInfo(id);
+    const d = await publicClient.readContract({ address: store, abi: storeAbi, functionName: "getProductDetails", args: [id] });
     return { ...p, priceMusd: formatUnits(d.price, 18), stock: Number(d.stock), perCustomerLimit: Number(d.perCustomerLimit), available: d.price > 0n && d.stock > 0 };
   }));
-  return rows;
+  // Gift cards first (cheapest first), then everything else
+  return rows.sort((a, b) => (a.kind === "gift-card" ? 0 : 1) - (b.kind === "gift-card" ? 0 : 1) || Number(a.priceMusd) - Number(b.priceMusd));
 }
 
 export interface BuyQuote {
@@ -67,8 +90,8 @@ export async function quoteBuy(buyer: Address, productId: number, threshold = co
   const store = storeAddress();
   const base = { musdBalance: "0", ratio: null as number | null, threshold, needsApproval: false, txs: [] as BuyQuote["txs"] };
   if (!store) return { ok: false, error: "Mezo Market isn't available on this network in MezoChat yet.", ...base };
-  const info = PRODUCTS.find(p => p.id === productId);
-  if (!info) return { ok: false, error: "Unknown product.", ...base };
+  if (!Number.isInteger(productId) || productId <= 0) return { ok: false, error: "Unknown product.", ...base };
+  const info = productInfo(productId);
   const [d, bal, allowance, orders, health] = await Promise.all([
     publicClient.readContract({ address: store, abi: storeAbi, functionName: "getProductDetails", args: [productId] }),
     publicClient.readContract({ address: MUSD, abi: erc20, functionName: "balanceOf", args: [buyer] }),

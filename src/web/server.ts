@@ -88,7 +88,9 @@ export function createHandler(hooks: WebHooks) {
         const a = url.searchParams.get("address") ?? "";
         const action = url.searchParams.get("action") ?? "view";
         if (!isAddress(a) || !["view", "add", "repay", "close"].includes(action)) return json(400, { error: "Bad request" });
-        return json(200, await quoteTrove(a, action as TroveAction, (url.searchParams.get("amount") ?? "0").trim()));
+        const who = verifyInitData(url.searchParams.get("tg") ?? "", config.botToken);
+        const safeRatio = (who && hooks.thresholdFor?.(who.id)) || config.defaultThreshold;
+        return json(200, { ...(await quoteTrove(a, action as TroveAction, (url.searchParams.get("amount") ?? "0").trim())), safeRatio });
       }
       if (req.method === "POST" && url.pathname === "/api/mini/trove-tx") {
         const b = await body(req);
