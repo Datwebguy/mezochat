@@ -9,6 +9,7 @@ import { getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { txWaitMs } from "../runtime.js";
 import { claimOnChain, handleOfOnChain, registryEnabled, registryReadable, resolveOnChain } from "../mezo/registry.js";
 import { PRODUCTS, catalog, marketItemUrl, storeAddress } from "../mezo/market.js";
+import { TEST_PRODUCT, bitrefill, buyGiftCard, giftCard, satsToUsd, searchGiftCards } from "../mezo/bitrefill.js";
 import { store, normalizeHandle, storedMap } from "../registry/store.js";
 import { createSession, verifyMessage, type Session } from "../web/sessions.js";
 import type { WebHooks } from "../web/server.js";
@@ -47,6 +48,7 @@ const COMMANDS: { command: string; description: string; usage?: string }[] = [
   { command: "split", description: "Split a bill in MUSD on Mezo", usage: "/split 120 with @alice @bob" },
   { command: "pay", description: "Recurring MUSD payment, gated by your Mezo Trove ratio", usage: "/pay 800 to @landlord on the 1st if ratio > 160" },
   { command: "buy", description: "Mezo Market: gift cards & more, paid in MUSD" },
+  { command: "giftcard", description: "Instant gift card, code delivered in chat", usage: "/giftcard amazon" },
   { command: "activity", description: "Recent receipts and actions" },
   { command: "recurring", description: "List or cancel recurring payments" },
   { command: "splits", description: "Who has paid your splits" },
@@ -118,6 +120,25 @@ export function createBot() {
     ? ctx.reply("Manage your MUSD loan: add BTC to stay safe, repay MUSD, or close it and get your BTC back.",
         { reply_markup: new InlineKeyboard().webApp("Manage loan", miniUrl("?view=loan")) })
     : ctx.reply("Loan management in Telegram isn't enabled on this server."));
+  // ---------- Bitrefill gift cards with the code delivered in chat ----------
+  const giftPick = storedMap<string, { owner: number; productId: string; packageId?: string; value?: string; currency?: string; priceSats?: number; name?: string }>("gift");
+  const gid = () => Math.random().toString(36).slice(2, 10);
+  const giftAllowed = (u?: { handle: string }) => !!u && bitrefill.enabled() && (!bitrefill.ownerHandle() || u.handle === bitrefill.ownerHandle());
+  bot.command("giftcard", async ctx => {
+    const me = store.user(ctx.from!.id);
+    if (!me) return ctx.reply("Connect your wallet first with /start.");
+    if (!giftAllowed(me)) return ctx.reply("🎁 Instant gift cards with the code in chat are rolling out. Meanwhile, shop Mezo Market with /buy.");
+    const q = String(ctx.match ?? "").trim();
+    if (!q) return ctx.reply("Which gift card? Examples:\n/giftcard amazon\n/giftcard netflix\n/giftcard test  (free demo card)");
+    try {
+      const items = q.toLowerCase() === "test" ? [await giftCard(TEST_PRODUCT)] : await searchGiftCards(q);
+      if (!items.length) return ctx.reply(`No gift cards found for "${q}". Try another brand, e.g. /giftcard amazon`);
+      const kb = new InlineKeyboard();
+      for (const p of items) { const id = gid(); giftPick.set(id, { owner: me.telegramId, productId: p.id, name: p.name }); kb.text(`${p.name} (${p.currency})`, `gp:${id}`).row(); }
+      await ctx.reply(`🎁 Gift cards for "${q}". The code is delivered right here in the chat:`, { reply_markup: kb });
+    } catch (e) { await ctx.reply(`Bitrefill is unavailable right now: ${(e as Error).message}`); }
+  });
+
   bot.command("faucet", async ctx => {
     if (config.network !== "testnet") return ctx.reply("The faucet is only for Mezo Testnet.");
     const me = store.user(ctx.from!.id);
@@ -156,6 +177,37 @@ export function createBot() {
         }
         const owner = store.allUsers().find(u => u.telegramId === r.from)!;
         return send(ctx.chat!.id, await payFlow(me, owner.address as Address, `@${owner.handle}`, r.amount, "send"));
+      }
+      if (kind === "gp" || kind === "gk" || kind === "gb") {
+        const pick = giftPick.get(a);
+        if (!pick || pick.owner !== me.telegramId || !giftAllowed(me)) return ctx.editMessageText("That gift card choice expired. Send /giftcard again.");
+        if (kind === "gp") {
+          const p = await giftCard(pick.productId);
+          const pk = p.packages.slice(0, 8);
+          if (!pk.length) return ctx.editMessageText(`${p.name} has no fixed amounts available right now. Try another card.`);
+          const kb = new InlineKeyboard();
+          pk.forEach((k, i) => { const id = gid(); giftPick.set(id, { ...pick, packageId: k.id, value: k.value, currency: p.currency, priceSats: k.priceSats, name: p.name }); kb.text(`${k.value} ${p.currency}`, `gk:${id}`); if (i % 3 === 2) kb.row(); });
+          return ctx.editMessageText(`🎁 ${p.name}: choose an amount`, { reply_markup: kb });
+        }
+        const test = pick.productId === TEST_PRODUCT;
+        const usd = test ? 0 : await satsToUsd(pick.priceSats ?? 0);
+        if (kind === "gk") {
+          return ctx.editMessageText(`🎁 ${pick.name}: ${pick.value} ${pick.currency}\n${test ? "Free demo card." : `Cost ≈ $${usd.toFixed(2)}`}\nBuy it now? The code arrives here in seconds.`,
+            { reply_markup: new InlineKeyboard().text("Buy now", `gb:${a}`).text("Cancel", "cancel") });
+        }
+        // gb: buy, within the daily budget (the free test card doesn't count)
+        const day = `giftusd:${new Date().toISOString().slice(0, 10)}`;
+        const spent = store.meta(day) / 100;
+        if (!test && spent + usd > bitrefill.dailyUsd())
+          return ctx.editMessageText(`Daily gift card budget reached ($${spent.toFixed(2)} of $${bitrefill.dailyUsd()} used). Try again tomorrow or pick a smaller amount.`);
+        giftPick.delete(a);
+        await ctx.editMessageText(`⏳ Buying ${pick.name} ${pick.value} ${pick.currency}…`);
+        try {
+          const r = await buyGiftCard(pick.productId, pick.packageId!);
+          if (!test) store.setMeta(day, Math.round((spent + usd) * 100));
+          store.log({ telegramId: me.telegramId, kind: "giftcard", amount: `${pick.value} ${pick.currency}`, counterparty: pick.name, tx: `bitrefill:${r.orderId}` });
+          return ctx.reply(`✓ ${pick.name} ${pick.value} ${pick.currency}\n\n🎁 Your code:\n\`${r.code}\`\n\n${r.instructions ?? ""}${r.other ? `\n${r.other}` : ""}\n\nBitrefill order ${r.orderId}`, { parse_mode: "Markdown" });
+        } catch (e) { return ctx.reply(`✗ Couldn't complete the gift card: ${(e as Error).message}`); }
       }
       if (kind === "rcancel") {
         const r = store.removeRecurring(a, me.telegramId);

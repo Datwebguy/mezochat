@@ -101,6 +101,10 @@ One-tap helpers fill in safe amounts. Before you sign, MezoChat runs the exact t
   <img src="docs/images/market-buy.png" width="250" alt="Buy with MUSD">
 </p>
 
+### 🎁 Instant gift cards, with the code delivered in chat
+
+`/giftcard netflix` searches Bitrefill's live catalog of thousands of brands. Pick a card and an amount, tap **Buy now**, and **the redemption code arrives in the chat within seconds**, through the [Bitrefill API](https://docs.bitrefill.com/docs/api-overview). Each purchase is logged in `/activity` with its Bitrefill order ID. `/giftcard test` runs Bitrefill's demo card end to end.
+
 ### 🔔 Safety alerts
 
 MezoChat watches every user's Trove and warns them when their ratio falls below their own safety level (`/alert 160`), and urgently near Mezo's 110% liquidation line. A check runs every 3 hours.
@@ -152,6 +156,7 @@ Type `/` in the chat for the menu, or just write a sentence.
 | `/pay` | `/pay 800 to @landlord on the 1st if ratio > 160` |
 | `/recurring` | List or cancel recurring payments |
 | `/buy` | Mezo Market: gift cards and more, paid in MUSD |
+| `/giftcard` | `/giftcard netflix`: instant gift card with the code delivered in chat |
 | `/activity` | Your recent receipts |
 | `/alert` | `/alert 160` sets your safety level |
 | `/whois` | `/whois @alice` shows the wallet and on-chain status |
@@ -235,6 +240,7 @@ Mainnet addresses (chain 31612) are in [`src/config.ts`](src/config.ts) and [`sr
 | Chain | [viem](https://viem.sh), Mezo RPC, Mezo MUSD contracts |
 | Wallet | Web Crypto (PBKDF2 / AES-GCM), Telegram CloudStorage |
 | AI | OpenAI (`gpt-4o-mini`), constrained to MezoChat commands |
+| Gift cards | Bitrefill API (codes delivered in chat) and the Mezo Store contract |
 | Contract | Solidity 0.8.24 (`HandleRegistry`) |
 | Hosting | Vercel Functions (Build Output API), Vercel Blob, Vercel Cron + GitHub Actions |
 
@@ -276,6 +282,7 @@ npm run vercel-build                      # Vercel build output in .vercel/outpu
 | `MEZO_NETWORK` | `testnet` (default) or `mainnet` |
 | `PUBLIC_URL` | Public https URL. Turns on the Mini App wallet and in-chat signing. |
 | `OPENAI_API_KEY` | Turns on plain-language understanding |
+| `BITREFILL_API_KEY` / `BITREFILL_OWNER_HANDLE` / `BITREFILL_DAILY_USD` | Instant gift cards with codes in chat, plus who can use them and the daily budget |
 | `REGISTRY_ADDRESS` / `PRIVATE_KEY` | On-chain handle registry and its relayer (deploy with `scripts/deploy-registry.ts`) |
 | `TELEGRAM_WEBHOOK_SECRET` / `CRON_SECRET` | Webhook and one-time setup secrets on Vercel |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob storage, set automatically when the store is connected |
