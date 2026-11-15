@@ -26,7 +26,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       if (!safeEq(String(req.headers["x-telegram-bot-api-secret-token"] ?? ""), process.env.TELEGRAM_WEBHOOK_SECRET ?? "\0")) return send(res, 401, { error: "unauthorized" });
       const update = JSON.parse(await readBody(req));
       await init();
-      await withStore(() => bot.handleUpdate(update));
+      // Always acknowledge: a non-200 makes Telegram re-send the same update again and again
+      // (e.g. when a reply fails because the user blocked the bot). Failures are logged instead.
+      try { await withStore(() => bot.handleUpdate(update)); }
+      catch (e) { console.error("update failed", update?.update_id, (e as Error).message); }
       send(res, 200, { ok: true });
     } else if (path === "/api/cron") {
       // Vercel Cron sends "Authorization: Bearer $CRON_SECRET"
