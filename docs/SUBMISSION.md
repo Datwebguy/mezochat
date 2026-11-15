@@ -12,7 +12,7 @@
 - **Manage the loan:** add BTC, repay MUSD or close the Trove, with the new ratio shown before signing.
 - **Pay by @username:** MezoChat handles, Telegram usernames or addresses, with every receipt confirmed on-chain.
 - **Requests and bill splits:** payment tracking and nudges.
-- **Recurring payments:** they only run while the user's Trove ratio is above their safety level.
+- **Recurring payments:** protected by the user's Trove ratio, so their Bitcoin stays safe.
 - **Mezo Market in Telegram:** a live catalog from Mezo's Store contract, with purchases via `order(productId)`.
 - **Gift cards with the code in chat:** through the Bitrefill API.
 - **Safety alerts:** every 3 hours, based on each user's own threshold.
