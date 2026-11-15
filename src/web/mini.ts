@@ -1,14 +1,14 @@
-import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
 import { config } from "../config.js";
 
 let bundle: Promise<string> | null = null;
 /** Bundles src/mini/app.ts (with viem) for the browser once, on first request. */
 export function miniBundle() {
-  bundle ??= build({
+  // esbuild is loaded only here (local dev). On Vercel /mini.js is a prebuilt static file, so this never runs.
+  bundle ??= import("esbuild").then(({ build }) => build({
     entryPoints: [fileURLToPath(new URL("../mini/app.ts", import.meta.url))],
     bundle: true, format: "esm", platform: "browser", target: "es2020", minify: true, write: false,
-  }).then(r => r.outputFiles[0].text);
+  })).then(r => r.outputFiles[0].text);
   return bundle;
 }
 
