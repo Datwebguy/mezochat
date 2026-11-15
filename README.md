@@ -32,24 +32,24 @@
 
 ---
 
-## ✨ MezoChat in one minute
+## MezoChat in one minute
 
 MezoChat turns Telegram into a full Bitcoin-backed bank account. Your wallet, your MUSD loan, your payments and your shopping all live in the app you already open every day.
 
-- 💬 **Banking by message:** `/send 25 to @alice`, or just type *"send Alice 20 for lunch"*.
-- 🏦 **Borrow MUSD against Bitcoin** with a live quote, right in the chat.
-- 🛡️ **Your Bitcoin stays protected:** every payment checks your live collateral ratio first.
-- 🛍️ **Spend MUSD** on Mezo Market and gift cards from thousands of brands.
-- 🔐 **You own your keys:** the wallet is encrypted on your device with your PIN.
+- **Banking by message:** `/send 25 to @alice`, or just type *"send Alice 20 for lunch"*.
+- **Borrow MUSD against Bitcoin** with a live quote, right in the chat.
+- **Your Bitcoin stays protected:** every payment checks your live collateral ratio first.
+- **Spend MUSD** on Mezo Market and gift cards from thousands of brands.
+- **You own your keys:** the wallet is encrypted on your device with your PIN.
 
-➡️ Read the full story in **[What is MezoChat?](PRODUCT.md)**
+ Read the full story in **[What is MezoChat?](PRODUCT.md)**
 
 ---
 
-## 🧪 Try it in 2 minutes (free on Mezo Testnet)
+## Try it in 2 minutes (free on Mezo Testnet)
 
 1. Open **[@MezoChat_Bot](https://t.me/MezoChat_Bot)** and tap **Start**.
-2. Tap **✨ Create or import wallet in Telegram**, then **Create a new wallet**, and pick a PIN or passphrase. Claim your @handle.
+2. Tap ** Create or import wallet in Telegram**, then **Create a new wallet**, and pick a PIN or passphrase. Claim your @handle.
 3. Send **`/faucet`** and grab free test BTC.
 4. Send **`/borrow`**, enter `1800` MUSD, tap **BTC for safe level** and confirm with your PIN. Your MUSD arrives in seconds.
 5. Explore:
@@ -67,9 +67,9 @@ MezoChat turns Telegram into a full Bitcoin-backed bank account. Your wallet, yo
 
 ---
 
-## 🚀 Features
+## Features
 
-### 👛 A wallet that lives in Telegram
+### A wallet that lives in Telegram
 
 Tap **Wallet** to create a new wallet or import yours. Your key is encrypted on your device with your PIN or passphrase (PBKDF2, 600,000 rounds, AES-GCM) and kept in your Telegram cloud. MezoChat never sees it. MetaMask, Trust, Coinbase, OKX and any wallet browser connect too.
 
@@ -79,7 +79,7 @@ Tap **Wallet** to create a new wallet or import yours. Your key is encrypted on 
   <img src="docs/images/connect-wallets.png" width="230" alt="Connect MetaMask, Trust, Coinbase, OKX">
 </p>
 
-### 🏦 Borrow MUSD against Bitcoin
+### Borrow MUSD against Bitcoin
 
 `/borrow` builds a live quote from Mezo's own contracts as you type:
 - collateral ratio
@@ -95,11 +95,11 @@ One-tap helpers fill in safe amounts. MezoChat tests the exact transaction again
   <img src="docs/images/loan-manage.png" width="250" alt="Manage your loan">
 </p>
 
-### 🛡️ Manage your loan
+### Manage your loan
 
 `/loan` lets you **add BTC**, **repay MUSD** or **close the loan and get your BTC back**. Each action previews your new ratio and liquidation price, and the bot confirms in chat with a receipt.
 
-### 💸 Pay anyone by @username
+### Pay anyone by @username
 
 `/send 25 to @alice` works with a MezoChat handle, a Telegram @username or any wallet address. Tap **Pay**, enter your PIN, and MezoChat verifies the MUSD transfer on-chain before posting receipts to you and the recipient.
 
@@ -107,17 +107,17 @@ One-tap helpers fill in safe amounts. MezoChat tests the exact transaction again
   <img src="docs/images/pay.png" width="250" alt="Pay inside Telegram">
 </p>
 
-### 🧾 Requests and bill splits
+### Requests and bill splits
 
 - `/request 40 from @bob` sends Bob a one-tap **Pay** button.
 - `/split 120 with @alice @bob` shares the bill evenly and messages everyone their part.
-- `/splits` shows who has paid, with a **Nudge** button. You get "✓ @bob paid" as shares come in, and "Split fully settled 🎉" at the end.
+- `/splits` shows who has paid, with a **Nudge** button. You get "✓ @bob paid" as shares come in, and "Split fully settled " at the end.
 
-### 🔁 Recurring payments protected by your ratio
+### Recurring payments protected by your ratio
 
 `/pay 800 to @landlord on the 1st if ratio > 160` schedules rent that goes out while your collateral is healthy, so your Bitcoin stays safe. `/recurring` lists them, with one-tap cancel.
 
-### 🛍️ Mezo Market inside Telegram
+### Mezo Market inside Telegram
 
 `/buy` opens Mezo Market with **prices and stock read live from Mezo's on-chain Store contract**: Bitrefill gift cards and Mezo-edition Ledger wallets, with new products appearing automatically. Pick an item and pay with your PIN. MezoChat checks stock, per-person limits, your MUSD balance and your ratio, then approves MUSD and calls `order(productId)`. Your receipt comes with a **Reveal my code** button that takes you straight to your item on Mezo Market.
 
@@ -126,25 +126,25 @@ One-tap helpers fill in safe amounts. MezoChat tests the exact transaction again
   <img src="docs/images/market-buy.png" width="250" alt="Buy with MUSD">
 </p>
 
-### 🎁 Gift cards with the code in chat
+### Gift cards with the code in chat
 
 `/giftcard netflix` searches Bitrefill's live catalog of thousands of brands. Pick a card and an amount, tap **Buy now**, and **the code arrives in the chat within seconds** through the [Bitrefill API](https://docs.bitrefill.com/docs/api-overview). Each purchase is logged in `/activity`.
 
-### 🔔 Safety alerts
+### Safety alerts
 
 MezoChat watches every Trove and alerts you when your ratio approaches your own safety level (`/alert 160`), with an urgent heads-up near Mezo's liquidation line, read live from the protocol. Checks run every 3 hours.
 
-### ⛓️ On-chain @handles
+### On-chain @handles
 
 Handles live in our `HandleRegistry` contract on Mezo, so anyone can verify who a handle pays (`/whois @alice`). Reconnect from any device and your handle is restored from the chain. Every handle stays with the wallet that registered it.
 
-### 🤖 Plain-language banking
+### Plain-language banking
 
 Type the way you talk: *"yo send bob twenty for lunch"* becomes `send 20 to @bob`. The AI maps messages onto MezoChat's commands, and every action keeps its confirmation and safety checks.
 
 ---
 
-## ⛓️ Proven on-chain
+## Proven on-chain
 
 Every core flow has been run end to end through the MezoChat Mini App on Mezo Testnet:
 
@@ -159,7 +159,7 @@ Every core flow has been run end to end through the MezoChat Mini App on Mezo Te
 
 ---
 
-## 💬 Commands
+## Commands
 
 Type `/` in the chat for the menu, or just write a sentence.
 
@@ -196,7 +196,7 @@ Tx: 0x…
 
 ---
 
-## 🧩 How it works
+## How it works
 
 ```mermaid
 flowchart LR
@@ -234,7 +234,7 @@ MezoChat also ships with the Mezo Mainnet configuration, including the mainnet M
 
 ---
 
-## 🔐 Security
+## Security
 
 - **Non-custodial:** keys are created and encrypted in the Mini App (PBKDF2 600k + AES-GCM) and stored in Telegram CloudStorage. The server never receives a key or PIN.
 - **Verified identity:** Telegram `initData` is checked by HMAC on every Mini App call, and wallets are linked with signed messages.
@@ -246,7 +246,7 @@ MezoChat also ships with the Mezo Mainnet configuration, including the mainnet M
 
 ---
 
-## 🛠️ Tech stack
+## Tech stack
 
 | Area | Built with |
 |---|---|
@@ -279,7 +279,7 @@ Product docs: [What is MezoChat?](PRODUCT.md) · [Architecture](ARCHITECTURE.md)
 
 ---
 
-## 🧑‍💻 Run it yourself
+## Run it yourself
 
 ```bash
 npm install
@@ -311,11 +311,11 @@ npx tsx scripts/market-quote-check.ts                # live Mezo Market catalog
 
 ---
 
-## 🌱 What's next
+## What's next
 
-- 👥 **Group chats:** split and settle bills inside group conversations.
-- 🏪 **More to spend on:** new Mezo Market partners and brands as they launch.
-- 🌍 **More languages** for MezoChat's plain-language banking.
+- **Group chats:** split and settle bills inside group conversations.
+- **More to spend on:** new Mezo Market partners and brands as they launch.
+- **More languages** for MezoChat's plain-language banking.
 
 ---
 

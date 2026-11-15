@@ -25,15 +25,15 @@ Bitcoin is the strongest savings asset in the world, but day-to-day spending run
 
 | | |
 |---|---|
-| 👛 **Own a wallet in seconds** | Create or import a wallet right inside Telegram. It's protected by your PIN and encrypted on your device. MetaMask, Trust, Coinbase and OKX connect too. |
-| 🏦 **Borrow MUSD against Bitcoin** | Deposit BTC and borrow MUSD with a live quote from Mezo's contracts, including your ratio, liquidation price and fees, all before you sign. |
-| 🛡️ **Manage your loan** | Add BTC, repay MUSD or close your loan and take your BTC back, with every change previewed first. |
-| 💸 **Pay anyone by @username** | `/send 25 to @alice`. Your payment settles on Mezo, and both of you get a receipt in chat. |
-| 🧾 **Request money and split bills** | `/split 120 with @alice @bob`. Everyone gets a Pay button, and you see who has paid. |
-| 🔁 **Automate payments** | `/pay 800 to @landlord on the 1st if ratio > 160`. Rent goes out on time while your Bitcoin stays protected. |
-| 🛍️ **Shop with MUSD** | Browse Mezo Market inside Telegram, with live prices and stock, and buy gift cards with brand codes delivered in chat. |
-| 🔔 **Stay safe automatically** | MezoChat watches your loan and alerts you before your collateral gets close to your safety level. |
-| 🤖 **Just talk** | *"send bob twenty for lunch"* works. MezoChat understands everyday language. |
+| **Own a wallet in seconds** | Create or import a wallet right inside Telegram. It's protected by your PIN and encrypted on your device. MetaMask, Trust, Coinbase and OKX connect too. |
+| **Borrow MUSD against Bitcoin** | Deposit BTC and borrow MUSD with a live quote from Mezo's contracts, including your ratio, liquidation price and fees, all before you sign. |
+| **Manage your loan** | Add BTC, repay MUSD or close your loan and take your BTC back, with every change previewed first. |
+| **Pay anyone by @username** | `/send 25 to @alice`. Your payment settles on Mezo, and both of you get a receipt in chat. |
+| **Request money and split bills** | `/split 120 with @alice @bob`. Everyone gets a Pay button, and you see who has paid. |
+| **Automate payments** | `/pay 800 to @landlord on the 1st if ratio > 160`. Rent goes out on time while your Bitcoin stays protected. |
+| **Shop with MUSD** | Browse Mezo Market inside Telegram, with live prices and stock, and buy gift cards with brand codes delivered in chat. |
+| **Stay safe automatically** | MezoChat watches your loan and alerts you before your collateral gets close to your safety level. |
+| **Just talk** | *"send bob twenty for lunch"* works. MezoChat understands everyday language. |
 
 ## Why it matters
 
@@ -62,6 +62,6 @@ MezoChat runs directly on Mezo's contracts: **MUSD**, **TroveManager**, **Borrow
 
 Open **[@MezoChat_Bot](https://t.me/MezoChat_Bot)**, create your wallet, send `/faucet` for free test BTC, and `/borrow` your first MUSD on Mezo Testnet. It takes about two minutes.
 
-➡️ Technical details, screenshots and on-chain proofs are in the **[README](README.md)**.
+ Technical details, screenshots and on-chain proofs are in the **[README](README.md)**.
 
 <p align="center"><b>MezoChat: Bitcoin-backed money, as easy as sending a message.</b></p>

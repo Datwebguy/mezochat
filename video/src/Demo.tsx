@@ -66,7 +66,7 @@ const Point: React.FC<{ icon: string; text: string; at: number }> = ({ icon, tex
   return (
     <div style={{ display: "flex", gap: 18, alignItems: "center", fontSize: 31, color: "#f4e2d6", background: "#ffffff08", border: `1px solid ${glow > 0.05 ? C.o : C.line}`, borderRadius: 20, padding: "18px 24px",
       opacity: p, transform: `translateX(${(1 - p) * 60}px)`, boxShadow: `0 0 ${40 * glow}px ${C.o}55` }}>
-      <span style={{ width: 46, height: 46, flex: "none", borderRadius: 13, background: "#ff5a1f22", display: "grid", placeItems: "center", fontSize: 24 }}>{icon}</span>{text}
+      <span style={{ width: 6, height: 36, flex: "none", borderRadius: 3, background: C.o }} />{text}
     </div>
   );
 };
@@ -220,19 +220,19 @@ const S: Record<string, (s: Scene) => { body: React.ReactNode; cur?: CurKey[] }>
     return { cur: [[0, [900, 700]], [a - 0.9, [560, 930]], [a - 0.2, [640, 935], true], [c - 1, [460, 880]], [c - 0.2, [465, 866], true], [p - 0.6, imgPt(390, 980)], [p, imgPt(390, 980), true], [h - 0.6, imgPt(390, 560)], [h, imgPt(390, 560), true]],
       body: <><Tag n="01" l="WALLET" />
         <Phone msgs={[{ t: 0, me: true, text: "/start", type: [a - 1.1, a - 0.15] },
-          { t: a + 0.35, html: <>Welcome to <b>MezoChat</b> 🧡{"\n"}Your MUSD bank, right here in Telegram.<Btn>✨ Create or import wallet in Telegram</Btn></> }]}
+          { t: a + 0.35, html: <>Welcome to <b>MezoChat</b> {"\n"}Your MUSD bank, right here in Telegram.<Btn> Create or import wallet in Telegram</Btn></> }]}
           mini={[{ t0: c, t1: 99, img: "wallet-setup", swap: [[p - 0.1, "wallet-passphrase"], [h, "wallet-home"]] }]} />
-        <Side kick="YOUR WALLET" title="A wallet in seconds" pts={[["🔐", "Encrypted on your phone with your PIN", c], ["🙋", "Only you control your key", W(s, "only")], ["⛓️", "@handle registered on Mezo", h]]} /></> };
+        <Side kick="YOUR WALLET" title="A wallet in seconds" pts={[["", "Encrypted on your phone with your PIN", c], ["", "Only you control your key", W(s, "only")], ["", "@handle registered on Mezo", h]]} /></> };
   },
   borrow: s => {
     const b = W(s, "borrow"), n = W(s, "number"), o = W(s, "tap"), pn = W(s, "pin"), e = W(s, "eighteen");
     return { cur: [[0, [900, 700]], [b + 0.6, [460, 866]], [b + 1.1, [460, 866], true], [o - 0.6, imgPt(215, 1191, 560)], [o, imgPt(215, 1191, 560), true], [pn - 0.3, [470, 880]]],
       body: <><Tag n="02" l="BORROW" />
         <Phone msgs={[{ t: 0, me: true, text: "/borrow", type: [0.2, b - 0.1] },
-          { t: b + 0.2, html: <>Borrow MUSD against your BTC.{"\n"}Every number is live from Mezo.<Btn>🏦 Open Borrow</Btn></> },
+          { t: b + 0.2, html: <>Borrow MUSD against your BTC.{"\n"}Every number is live from Mezo.<Btn> Open Borrow</Btn></> },
           { t: e, html: <><Ok>✓ Borrowed 1,800 MUSD</Ok>{"\n"}Collateral: 0.039 BTC{"\n"}Ratio: 127%{"\n"}Tx: <Code>0x1870…dd57</Code></> }]}
           mini={[{ t0: b + 1.15, t1: e - 0.4, img: "borrow", scroll: [[n + 0.3, n + 2.6, 0, 560]], pin: [pn, pn + 1.4] }]} />
-        <Side kick="BORROW MUSD" title="Borrow against Bitcoin" pts={[["📈", "Live ratio and liquidation price", W(s, "ratio")], ["🧮", "Fees shown before you sign", W(s, "fees")], ["₿", "You keep your Bitcoin", W(s, "still")]]} /></> };
+        <Side kick="BORROW MUSD" title="Borrow against Bitcoin" pts={[["", "Live ratio and liquidation price", W(s, "ratio")], ["", "Fees shown before you sign", W(s, "fees")], ["", "You keep your Bitcoin", W(s, "still")]]} /></> };
   },
   pay: s => {
     const u = W(s, "username"), h = W(s, "healthy"), r = W(s, "receipt");
@@ -240,10 +240,10 @@ const S: Record<string, (s: Scene) => { body: React.ReactNode; cur?: CurKey[] }>
       body: <><Tag n="03" l="PAY" />
         <Phone msgs={[{ t: 0, html: <><Ok>✓ Borrowed 1,800 MUSD</Ok>{"\n"}Ratio: 127%</> },
           { t: 0, me: true, text: "/send 25 to @alice", type: [0.3, u + 0.2] },
-          { t: u + 0.6, html: <>Loan check: ratio 127% <Ok>✓</Ok>{"\n"}Send 25 MUSD to @alice<Btn>💸 Pay 25 MUSD</Btn></> },
+          { t: u + 0.6, html: <>Loan check: ratio 127% <Ok>✓</Ok>{"\n"}Send 25 MUSD to @alice<Btn> Pay 25 MUSD</Btn></> },
           { t: r - 0.2, html: <><Ok>✓ Send</Ok>{"\n"}Amount: 25 MUSD{"\n"}To: @alice{"\n"}Ratio at time: 127%{"\n"}Tx: <Code>0xec41…1c1a2</Code></> }]}
           mini={[{ t0: h - 0.25, t1: r - 0.6, img: "pay", pin: [h + 0.6, h + 1.9] }]} />
-        <Side kick="PAY BY @USERNAME" title="Pay like you text" pts={[["@", "Any handle, @username or address", u], ["🛡️", "Loan checked before money moves", h], ["🧾", "On-chain receipts in chat", r]]} /></> };
+        <Side kick="PAY BY @USERNAME" title="Pay like you text" pts={[["@", "Any handle, @username or address", u], ["", "Loan checked before money moves", h], ["", "On-chain receipts in chat", r]]} /></> };
   },
   split: s => {
     const d = W(s, "dinner"), e = W(s, "everyone"), r = W(s, "rent"), p = W(s, "protected");
@@ -252,28 +252,28 @@ const S: Record<string, (s: Scene) => { body: React.ReactNode; cur?: CurKey[] }>
         { t: d + 0.5, html: <>Got it: <Code>/split 45 with @tolu @mike</Code>{"\n"}<Ok>✓ Split created</Ok>: 15 MUSD each</> },
         { t: e + 0.6, html: <><Ok>✓ @tolu paid</Ok> 15 MUSD</> },
         { t: 0, me: true, text: "/pay 800 to @landlord on the 1st if ratio > 125", type: [r - 0.9, r + 0.9] },
-        { t: p, html: <>🔁 <b>Scheduled</b>{"\n"}800 MUSD to @landlord on the 1st of every month, while your ratio stays above 125%.</> }]} />
-      <Side kick="SPLIT & AUTOMATE" title="Just talk to it" pts={[["💬", "Plain language works", W(s, "talk")], ["🧾", "Everyone gets a Pay button", e], ["🔁", "Rent, protected by your ratio", p]]} /></> };
+        { t: p, html: <><b>Scheduled</b>{"\n"}800 MUSD to @landlord on the 1st of every month, while your ratio stays above 125%.</> }]} />
+      <Side kick="SPLIT & AUTOMATE" title="Just talk to it" pts={[["", "Plain language works", W(s, "talk")], ["", "Everyone gets a Pay button", e], ["", "Rent, protected by your ratio", p]]} /></> };
   },
   market: s => {
     const sp = W(s, "spend"), st = W(s, "store"), g = W(s, "gift");
     return { cur: [[0, [900, 700]], [sp + 0.8, [460, 866]], [sp + 1.2, [460, 866], true], [st - 0.4, imgPt(390, 551, 120)], [st + 0.2, imgPt(390, 551, 120), true]],
       body: <><Tag n="05" l="SHOP" />
         <Phone msgs={[{ t: 0, me: true, text: "/buy", type: [0.1, sp + 0.3] },
-          { t: sp + 0.6, html: <>🛍️ Mezo Market, paid in MUSD<Btn>Open Mezo Market</Btn></> },
+          { t: sp + 0.6, html: <> Mezo Market, paid in MUSD<Btn>Open Mezo Market</Btn></> },
           { t: 0, me: true, text: "/giftcard test", type: [g - 1.2, g - 0.2] },
-          { t: g + 0.4, html: <>🎁 <b>Your gift card is ready</b>{"\n"}Test Gift Card · $10{"\n"}Code delivered right here</> }]}
+          { t: g + 0.4, html: <><b>Your gift card is ready</b>{"\n"}Test Gift Card · $10{"\n"}Code delivered right here</> }]}
           mini={[{ t0: sp + 1.25, t1: g - 1.5, img: "market", scroll: [[sp + 2, st - 0.5, 0, 120]], swap: [[st + 0.3, "market-buy"]] }]} />
-        <Side kick="SPEND MUSD" title="Shop inside Telegram" pts={[["🏪", "Mezo Market, from the Store contract", W(s, "market")], ["📦", "Live prices and stock", W(s, "prices")], ["🎁", "Gift card codes in chat", g]]} /></> };
+        <Side kick="SPEND MUSD" title="Shop inside Telegram" pts={[["", "Mezo Market, from the Store contract", W(s, "market")], ["", "Live prices and stock", W(s, "prices")], ["", "Gift card codes in chat", g]]} /></> };
   },
   safety: s => {
     const d = W(s, "dips"), o = W(s, "tap");
     return { cur: [[0, [900, 700]], [o - 0.9, [460, 866]], [o - 0.3, [460, 866], true]],
       body: <><Tag n="06" l="STAY SAFE" />
-        <Phone msgs={[{ t: d, html: <>⚠️ <b>Heads-up</b>{"\n"}Your ratio is 122%, close to your 120% safety level.<Btn>➕ Add BTC</Btn></> },
+        <Phone msgs={[{ t: d, html: <><b>Heads-up</b>{"\n"}Your ratio is 122%, close to your 120% safety level.<Btn> Add BTC</Btn></> },
           { t: s.dur - 0.3, html: <><Ok>✓ Added 0.01 BTC</Ok>{"\n"}New ratio: 160%</> }]}
           mini={[{ t0: o - 0.25, t1: s.dur - 0.9, img: "loan-manage" }]} />
-        <Side kick="ALWAYS WATCHING" title="Your Bitcoin, protected" pts={[["🕒", "Checks around the clock", W(s, "clock")], ["🔔", "Alerts at your safety level", d], ["➕", "Add BTC in one tap", o]]} /></> };
+        <Side kick="ALWAYS WATCHING" title="Your Bitcoin, protected" pts={[["", "Checks around the clock", W(s, "clock")], ["", "Alerts at your safety level", d], ["", "Add BTC in one tap", o]]} /></> };
   },
   proof: s => {
     const rows: [string, string, string][] = [["Borrow 1,800 MUSD", "0x1870…dd57", "borrowing"], ["Repay MUSD", "0x2f25…15dc", "repaying"], ["Mezo Market order #609", "0x1509…3ec4", "market"],
@@ -302,6 +302,26 @@ const SceneView: React.FC<{ s: Scene }> = ({ s }) => {
     </AbsoluteFill>
   );
 };
+
+export const Thumbnail: React.FC = () => (
+  <AbsoluteFill style={{ fontFamily, color: C.tx }}>
+    <Background />
+    <div style={{ position: "absolute", left: 110, top: 0, bottom: 0, width: 1050, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 14, marginBottom: 34 }}>
+        {["MEZO BUILDATHON", "BUILT BY DATWEB3GUY"].map((x, i) => <span key={x} style={{ border: `3px solid ${C.o}`, background: i ? C.o : "transparent", color: i ? "#fff" : C.o2, borderRadius: 999, padding: "10px 24px", fontWeight: 800, fontSize: 28, letterSpacing: 2 }}>{x}</span>)}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 30, marginBottom: 26 }}>
+        <Img src={staticFile("logo.png")} style={{ width: 150 }} />
+        <h1 style={{ fontSize: 150, fontWeight: 900, letterSpacing: -5, lineHeight: 1, margin: 0 }}>Mezo<span style={{ color: C.o }}>Chat</span></h1>
+      </div>
+      <div style={{ fontSize: 92, fontWeight: 900, letterSpacing: -3, lineHeight: 1.05 }}>Your Bitcoin bank,<br /><span style={{ color: C.o }}>inside Telegram.</span></div>
+      <div style={{ fontSize: 38, color: "#ecd8ca", marginTop: 30, fontWeight: 600 }}>Borrow MUSD. Pay by @username. Shop. All in chat.</div>
+    </div>
+    <div style={{ position: "absolute", right: 150, top: 110, width: 520, height: 860, borderRadius: 64, border: "14px solid #241610", overflow: "hidden", transform: "rotate(6deg)", boxShadow: `0 40px 160px ${C.o}55` }}>
+      <Img src={staticFile("img/borrow.png")} style={{ width: "100%" }} />
+    </div>
+  </AbsoluteFill>
+);
 
 export const Demo: React.FC = () => (
   <AbsoluteFill style={{ fontFamily, color: C.tx }}>
