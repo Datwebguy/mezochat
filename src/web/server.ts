@@ -24,6 +24,8 @@ export interface WebHooks {
   onMarketTx?(telegramId: number, hash: Hash, productId: number): Promise<void>;
   /** The user's /alert safety threshold in %, if known. */
   thresholdFor?(telegramId: number): number | undefined;
+  /** The wallet address the bot has linked to this Telegram user, if any (and whether a handle is claimed). */
+  linkedFor?(telegramId: number): { address: string; hasHandle: boolean } | null;
   /** expectedFrom = the user's linked address; null if unknown */
   expectedFrom(telegramId: number): Address | null;
   onPaid(s: Extract<Session, { kind: "pay" }>, hash: Hash, ok: boolean, reason?: string): Promise<void>;
@@ -96,6 +98,12 @@ export function createHandler(hooks: WebHooks) {
         json(200, { ok: true });
         background(async () => { await hooks.onTroveTx?.(who.id, b.txHash, b.action, String(b.amount ?? "")); });
         return;
+      }
+      if (req.method === "POST" && url.pathname === "/api/mini/status") {
+        const b = await body(req);
+        const who = verifyInitData(b.initData, config.botToken);
+        if (!who) return json(401, { error: "Open this from the MezoChat bot in Telegram." });
+        return json(200, hooks.linkedFor?.(who.id) ?? null);
       }
       if (req.method === "POST" && url.pathname === "/api/mini/link") {
         const b = await body(req);

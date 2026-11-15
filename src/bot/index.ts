@@ -255,6 +255,11 @@ export function createBot() {
       } catch (e) { await bot.api.sendMessage(telegramId, `✗ Borrow didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
     },
     thresholdFor(telegramId) { return store.user(telegramId)?.threshold; },
+    linkedFor(telegramId) {
+      const u = store.user(telegramId); if (u) return { address: u.address, hasHandle: true };
+      const step = onboarding.get(telegramId);                 // verified but handle not claimed yet
+      return step?.s === "handle" ? { address: step.address, hasHandle: false } : null;
+    },
     async onMarketTx(telegramId, hash, productId) {
       const p = PRODUCTS.find(x => x.id === productId);
       await bot.api.sendMessage(telegramId, `⏳ Buying ${p?.name ?? "item"} on Mezo Market. Waiting for confirmation…`).catch(() => {});

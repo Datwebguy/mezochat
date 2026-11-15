@@ -362,10 +362,33 @@ async function buyView(productId: number) {
   };
 }
 
+function relinkView() {
+  render(`<h1>Reconnect your wallet</h1>
+  <p class="muted">Your wallet ${short(vault!.address)} is saved in Telegram, but MezoChat needs to link it to your account again. Enter your PIN once to sign a free message. No funds move.</p>
+  <div class="card">${pinField()}</div><button id="go">Reconnect</button>
+  <details><summary>Use a different wallet instead</summary><button id="reset" class="secondary">Set up a different wallet</button>
+  <p class="muted">This replaces the wallet saved in Telegram. Back up your current key first if it holds funds.</p></details>
+  <div id="msg" class="msg"></div>`);
+  $("reset").onclick = () => setupView();
+  $("go").onclick = async () => {
+    const btn = $<HTMLButtonElement>("go"); busy(btn, true, "Reconnecting…");
+    try { await linkWallet(await decrypt(vault!, $("pin").value)); msg("✓ Reconnected. Go back to the chat to claim your @handle if asked.", "ok"); setTimeout(() => homeView(), 1200); }
+    catch (e) { msg((e as Error).message, "err"); busy(btn, false, "Reconnect"); }
+  };
+}
+
 async function route() {
   const raw = await store.get();
   vault = raw ? JSON.parse(raw) : null;
   if (!vault) return setupView();
+  // The wallet is saved in Telegram, but the bot may not have it linked (e.g. after a server move).
+  // Re-link with one PIN entry so chat commands work again.
+  if (initData) {
+    try {
+      const linked = await api("/api/mini/status", { initData });
+      if (!linked || linked.address?.toLowerCase() !== vault.address.toLowerCase()) return relinkView();
+    } catch { /* status check is best-effort */ }
+  }
   const sid = params.get("s");
   if (sid && /^[0-9a-f]{24}$/.test(sid)) return payView(sid);
   if (params.get("view") === "borrow") return borrowView();
