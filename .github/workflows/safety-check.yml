@@ -1,0 +1,13 @@
+name: Safety check
+# Runs MezoChat's ratio alerts and ratio-gated recurring payments every 3 hours (free, alongside Vercel's daily cron).
+# The endpoint rate-limits itself, so this needs no secrets.
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger MezoChat safety check
+        run: curl -fsS --max-time 280 https://pay.mezochat.xyz/api/cron

@@ -41,19 +41,21 @@ const store = {
 const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
 const unb64 = (s: string) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 const buf = (u: Uint8Array) => u as unknown as BufferSource; // TS lib typing quirk for Web Crypto
-async function deriveKey(pin: string, salt: Uint8Array) {
+/** New vaults use a stronger key-derivation setting; older vaults keep the setting they were created with. */
+const KDF_ITERATIONS = 600_000;
+async function deriveKey(pin: string, salt: Uint8Array, iterations = 210_000) {
   const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: buf(salt), iterations: 210_000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: buf(salt), iterations, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
 }
-interface Vault { v: 1; address: Hex; salt: string; iv: string; ct: string }
+interface Vault { v: 1; address: Hex; salt: string; iv: string; ct: string; iter?: number }
 async function encrypt(pk: Hex, pin: string): Promise<Vault> {
   const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: buf(iv) }, await deriveKey(pin, salt), buf(new TextEncoder().encode(pk))));
-  return { v: 1, address: privateKeyToAccount(pk).address, salt: b64(salt), iv: b64(iv), ct: b64(ct) };
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: buf(iv) }, await deriveKey(pin, salt, KDF_ITERATIONS), buf(new TextEncoder().encode(pk))));
+  return { v: 1, address: privateKeyToAccount(pk).address, salt: b64(salt), iv: b64(iv), ct: b64(ct), iter: KDF_ITERATIONS };
 }
 async function decrypt(vault: Vault, pin: string): Promise<Hex> {
   try {
-    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf(unb64(vault.iv)) }, await deriveKey(pin, unb64(vault.salt)), buf(unb64(vault.ct)));
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf(unb64(vault.iv)) }, await deriveKey(pin, unb64(vault.salt), vault.iter ?? 210_000), buf(unb64(vault.ct)));
     return new TextDecoder().decode(pt) as Hex;
   } catch { throw new Error("Wrong PIN"); }
 }
@@ -76,7 +78,14 @@ function msg(text: string, kind: "err" | "ok" | "" = "") {
   const el = document.getElementById("msg"); if (el) { el.textContent = text; el.className = "msg " + kind; }
 }
 const $ = <T extends HTMLElement = HTMLInputElement>(id: string) => document.getElementById(id) as T;
-const pinField = (id = "pin", label = "PIN") => `<label>${label}<input id="${id}" type="password" inputmode="numeric" autocomplete="off" minlength="6" maxlength="12" placeholder="6-12 digits"></label>`;
+const pinField = (id = "pin", label = "PIN or passphrase") => `<label>${label}<input id="${id}" type="password" autocomplete="off" minlength="6" maxlength="64" placeholder="Your PIN or passphrase"></label>`;
+/** Rough strength guide shown while choosing a PIN/passphrase. */
+function strength(p: string): { label: string; cls: string } {
+  const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^a-zA-Z\d]/].filter(r => r.test(p)).length;
+  if (p.length >= 12 && kinds >= 2) return { label: "Strong", cls: "good" };
+  if (p.length >= 8 && kinds >= 2) return { label: "Good", cls: "good" };
+  return { label: "Okay. A longer passphrase with letters and numbers is stronger.", cls: "warn" };
+}
 function busy(btn: HTMLButtonElement, on: boolean, text?: string) { btn.disabled = on; if (text) btn.textContent = text; }
 
 // ---------- flows ----------
@@ -104,11 +113,12 @@ function pinForm(importing: boolean) {
   render(`<h1>${importing ? "Import your wallet" : "Create your wallet"}</h1>
   ${importing ? `<div class="card"><label>Private key<input id="pk" type="password" autocomplete="off" placeholder="0x… (64 hex characters)"></label>
     <p class="muted">It's encrypted on this device with your PIN before it's saved. It's never sent to MezoChat.</p></div>` : ""}
-  <div class="card">${pinField("pin", "Choose a PIN")}${pinField("pin2", "Repeat PIN")}</div>
+  <div class="card">${pinField("pin", "Choose a PIN or passphrase")}<div id="strength" class="muted"></div>${pinField("pin2", "Repeat it")}</div>
   <button id="go">${importing ? "Import wallet" : "Create wallet"}</button>
   <button id="back" class="secondary">Back</button>
   <div id="msg" class="msg"></div>`);
   $("back").onclick = () => setupView();
+  $("pin").oninput = () => { const v = $("pin").value, st = strength(v); $("strength").innerHTML = v ? `Strength: <span class="${st.cls}">${esc(st.label)}</span>` : ""; };
   $("go").onclick = async () => {
     const btn = $<HTMLButtonElement>("go");
     const pin = $("pin").value, pin2 = $("pin2").value;
@@ -119,8 +129,8 @@ function pinForm(importing: boolean) {
       if (!/^0x[0-9a-fA-F]{64}$/.test(norm)) return msg("That isn't a valid private key (64 hex characters).", "err");
       pk = norm;
     }
-    if (!/^\d{6,12}$/.test(pin)) return msg("PIN must be 6-12 digits.", "err");
-    if (pin !== pin2) return msg("PINs don't match.", "err");
+    if (pin.length < 6) return msg("Use at least 6 characters. A longer passphrase is stronger.", "err");
+    if (pin !== pin2) return msg("They don't match. Type the same PIN or passphrase twice.", "err");
     busy(btn, true, "Setting up…");
     try {
       const key = pk ?? generatePrivateKey();

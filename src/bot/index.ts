@@ -329,7 +329,10 @@ export function createBot() {
   };
 
   /** Daily check for ratio-gated recurring payments, plus low-ratio alerts. */
+  /** Safe to trigger often (Vercel Cron, GitHub Actions): runs at most once per 55 minutes. */
   const tick = async () => {
+    if (Date.now() - store.meta("lastTick") < 55 * 60_000) return;
+    store.setMeta("lastTick", Date.now());
     const now = new Date(); const today = now.toISOString().slice(0, 10);
     for (const r of store.allRecurring()) {
       if (r.day !== now.getUTCDate() || r.lastRun === today) continue;
@@ -345,9 +348,12 @@ export function createBot() {
     }
     for (const u of store.allUsers().filter(x => x.alerts)) {
       try {
+        if (Date.now() - store.meta(`alert:${u.telegramId}`) < 6 * 3600_000) continue;   // at most one alert per 6h per user
         const g = await ratioGate(u);
-        if (!g.ok) await bot.api.sendMessage(u.telegramId, `⚠ ${g.reason}`);
-        else if (g.ratio !== null && g.ratio < 120) await bot.api.sendMessage(u.telegramId, `🚨 Ratio ${g.ratio}% is close to liquidation (110%). Add collateral or repay now.`);
+        let text: string | null = null;
+        if (!g.ok) text = `⚠ ${g.reason} Add BTC with /loan to get safer.`;
+        else if (g.ratio !== null && g.ratio < 120) text = `🚨 Ratio ${g.ratio}% is close to liquidation (110%). Add BTC with /loan or repay now.`;
+        if (text) { await bot.api.sendMessage(u.telegramId, text); store.setMeta(`alert:${u.telegramId}`, Date.now()); }
       } catch { /* RPC hiccup; try next tick */ }
     }
   };

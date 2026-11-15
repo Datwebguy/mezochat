@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { merge, type DB } from "./store.js";
 
-const empty = (): DB => ({ sessions: {}, users: {}, handles: {}, activity: [], requests: [], splits: [], recurring: [] });
+const empty = (): DB => ({ meta: {}, sessions: {}, users: {}, handles: {}, activity: [], requests: [], splits: [], recurring: [] });
 const u = (id: number, handle: string) => ({ telegramId: id, handle, address: "0x" + String(id).padStart(40, "0"), threshold: 150, alerts: true });
 
 test("concurrent writes merge instead of overwriting", () => {

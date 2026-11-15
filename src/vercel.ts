@@ -32,11 +32,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       catch (e) { console.error("update failed", update?.update_id, (e as Error).message); }
       send(res, 200, { ok: true });
     } else if (path === "/api/cron") {
-      // Vercel Cron sends "Authorization: Bearer $CRON_SECRET"
-      if (!safeEq(String(req.headers.authorization ?? ""), `Bearer ${process.env.CRON_SECRET ?? "\0"}`)) return send(res, 401, { error: "unauthorized" });
-      const t = Date.now(); const dbg = (m: string) => process.env.DEBUG_TIMING && console.log(`[cron] ${m} +${Date.now() - t}ms`);
-      dbg("start"); await init(); dbg("init done");
-      await withStore(tick); dbg("tick done");
+      // Triggered by Vercel Cron (daily) and a GitHub Actions schedule (every 3h). No secret needed:
+      // tick() runs at most once per 55 min and alerts each user at most once per 6h, so extra calls are harmless.
+      await init();
+      await withStore(tick);
       send(res, 200, { ok: true });
     } else if (path === "/api/setup" && req.method === "POST") {
       // One-time: point Telegram at this deployment and set commands/menu. Protected by the cron secret.

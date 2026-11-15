@@ -23,6 +23,6 @@ await check("live market catalog", "/api/market/catalog", undefined, 200);
 await check("borrow quote", "/api/borrow/quote?address=0x75A0C2d1Df51C07982De3Ff031E5232518676B19&coll=0.05&debt=1800", undefined, 200);
 await check("webhook without secret is rejected", "/api/telegram", { method: "POST", body: "{}" }, 401);
 await check("webhook with wrong secret is rejected", "/api/telegram", { method: "POST", body: "{}", headers: { "x-telegram-bot-api-secret-token": "nope" } }, 401);
-await check("cron without secret is rejected", "/api/cron", undefined, 401);
+await check("cron runs without a secret (self rate-limited)", "/api/cron", undefined, 200);
 await check("setup without secret is rejected", "/api/setup", { method: "POST" }, 401);
 srv.close();

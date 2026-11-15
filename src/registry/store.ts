@@ -8,9 +8,9 @@ export interface Request { id: string; from: number; to: number; amount: string;
 export interface Split { id: string; owner: number; total: string; shares: { handle: string; amount: string; paid: boolean }[]; }
 export interface Recurring { id: string; owner: number; to: string; amount: string; day: number; minRatio: number; lastRun?: string; }
 
-export interface DB { sessions: Record<string, any>; users: Record<string, User>; handles: Record<string, number>; activity: Activity[]; requests: Request[]; splits: Split[]; recurring: Recurring[]; }
+export interface DB { meta: Record<string, number>; sessions: Record<string, any>; users: Record<string, User>; handles: Record<string, number>; activity: Activity[]; requests: Request[]; splits: Split[]; recurring: Recurring[]; }
 
-const empty = (): DB => ({ sessions: {}, users: {}, handles: {}, activity: [], requests: [], splits: [], recurring: [] });
+const empty = (): DB => ({ meta: {}, sessions: {}, users: {}, handles: {}, activity: [], requests: [], splits: [], recurring: [] });
 
 let db: DB = empty();
 let loaded = false;
@@ -178,5 +178,8 @@ export const store = {
     for (const [k, v] of Object.entries(db.sessions)) if ((v as any).created < cut) { delete db.sessions[k]; n++; }
     if (n) save();
   },
+  /** Small persistent numbers (timestamps for rate limits). */
+  meta(key: string) { load(); return db.meta[key] ?? 0; },
+  setMeta(key: string, v: number) { load(); db.meta[key] = v; save(); },
   allUsers() { load(); return Object.values(db.users); },
 };
