@@ -31,8 +31,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     } else if (path === "/api/cron") {
       // Vercel Cron sends "Authorization: Bearer $CRON_SECRET"
       if (!safeEq(String(req.headers.authorization ?? ""), `Bearer ${process.env.CRON_SECRET ?? "\0"}`)) return send(res, 401, { error: "unauthorized" });
-      await init();
-      await withStore(tick);
+      const t = Date.now(); const dbg = (m: string) => process.env.DEBUG_TIMING && console.log(`[cron] ${m} +${Date.now() - t}ms`);
+      dbg("start"); await init(); dbg("init done");
+      await withStore(tick); dbg("tick done");
       send(res, 200, { ok: true });
     } else if (path === "/api/setup" && req.method === "POST") {
       // One-time: point Telegram at this deployment and set commands/menu. Protected by the cron secret.

@@ -78,7 +78,8 @@ const kb = (bs?: Button[]) => {
 };
 
 export function createBot() {
-  const bot = new Bot(config.botToken);
+  // Use Node's built-in fetch: grammY's bundled node-fetch hangs inside the single-file Vercel bundle.
+  const bot = new Bot(config.botToken, { client: { fetch: globalThis.fetch as never } });
 
   const send = async (chatId: number, r: Reply) => {
     await bot.api.sendMessage(chatId, r.text, { reply_markup: kb(r.buttons) });
