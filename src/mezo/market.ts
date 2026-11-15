@@ -9,19 +9,21 @@ import { MUSD, getTroveHealth, publicClient } from "./client.js";
  */
 export const STORE: Record<string, Address | undefined> = {
   testnet: "0xBaeB52D7f812b7C2D109aAe7e50d1BabF2759fcE",   // confirmed on-chain (answers getProductDetails)
-  mainnet: (process.env.MEZO_STORE_ADDRESS as Address) || undefined, // not confirmed yet: set when known
+  mainnet: "0xb6881e8b21a3cd6d23c4f90724e26e35bb8980be",   // found via its OrderPlaced events on Mezo mainnet; prices match mezo.org/market
 };
-export const storeAddress = () => STORE[config.network];
+export const storeAddress = () => (process.env.MEZO_STORE_ADDRESS as Address | undefined) || STORE[config.network];
+/** Mezo Market's own page for an item, where the buyer reveals their redemption code after signing in. */
+export const marketItemUrl = (p: ProductInfo) => `https://${config.network === "testnet" ? "testnet." : ""}mezo.org/market/items/${p.page}`;
 
-export interface ProductInfo { id: number; name: string; kind: "gift-card" | "hardware"; redeem: string }
+export interface ProductInfo { id: number; name: string; kind: "gift-card" | "hardware"; redeem: string; page: string }
 export const PRODUCTS: ProductInfo[] = [
-  { id: 1003, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)" },
-  { id: 1004, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)" },
-  { id: 1005, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)" },
-  { id: 1006, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)" },
-  { id: 1007, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)" },
-  { id: 1001, name: "Ledger Nano X (Mezo Edition)", kind: "hardware", redeem: "Ledger.com" },
-  { id: 1002, name: "Ledger Stax (Mezo Edition)", kind: "hardware", redeem: "Ledger.com" },
+  { id: 1003, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
+  { id: 1004, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
+  { id: 1005, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
+  { id: 1006, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
+  { id: 1007, name: "Bitrefill gift card", kind: "gift-card", redeem: "Bitrefill (bitrefill.com/redeem)", page: "bitrefill-gift-card" },
+  { id: 1001, name: "Ledger Nano X (Mezo Edition)", kind: "hardware", redeem: "Ledger.com", page: "ledger-nano-x" },
+  { id: 1002, name: "Ledger Stax (Mezo Edition)", kind: "hardware", redeem: "Ledger.com", page: "ledger-stax" },
 ];
 
 const storeAbi = [

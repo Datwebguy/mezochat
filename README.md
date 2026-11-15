@@ -94,7 +94,7 @@ One-tap helpers fill in safe amounts. Before you sign, MezoChat runs the exact t
 
 ### 🛍️ Mezo Market inside Telegram
 
-`/buy` shows Mezo Market's catalog, with **prices and stock read live from Mezo's on-chain Store contract**: Bitrefill gift cards and Mezo-edition Ledger wallets. Pick an item and pay with your PIN; MezoChat approves MUSD and calls `order(productId)` on the Store. Before you pay, it checks stock, per-person limits, your MUSD balance and your ratio.
+`/buy` shows Mezo Market's catalog, with **prices and stock read live from Mezo's on-chain Store contract**: Bitrefill gift cards and Mezo-edition Ledger wallets. Pick an item and pay with your PIN; MezoChat approves MUSD and calls `order(productId)` on the Store. Before you pay, it checks stock, per-person limits, your MUSD balance and your ratio. Your receipt includes a **Reveal my code** button that opens the item on Mezo Market, where Mezo shows your redemption code.
 
 <p align="center">
   <img src="docs/images/market.png" width="250" alt="Live Mezo Market catalog">
@@ -204,7 +204,7 @@ flowchart LR
 | Mezo Store (Market) | `0xBaeB52D7f812b7C2D109aAe7e50d1BabF2759fcE` |
 | **HandleRegistry** (MezoChat) | [`0xd5c172f90799670de5f05b7506f13d977eccc6b5`](https://explorer.test.mezo.org/address/0xd5c172f90799670de5f05b7506f13d977eccc6b5) |
 
-Mainnet addresses (chain 31612) are in [`src/config.ts`](src/config.ts). Switch networks with `MEZO_NETWORK=mainnet`.
+Mainnet addresses (chain 31612) are in [`src/config.ts`](src/config.ts) and [`src/mezo/market.ts`](src/mezo/market.ts). This includes the **Mezo Store on mainnet, `0xb6881e8b21a3cd6d23c4f90724e26e35bb8980be`**, which MezoChat located from its `OrderPlaced` events (see [`scripts/find-store.ts`](scripts/find-store.ts)). Its live catalog has Bitrefill gift cards at 25, 50, 100, 200 and 1,000 MUSD, plus the Mezo-edition Ledger Nano X and Stax. Switch networks with `MEZO_NETWORK=mainnet`.
 
 ### HandleRegistry
 

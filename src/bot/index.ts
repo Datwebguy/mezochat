@@ -8,7 +8,7 @@ import { config, web } from "../config.js";
 import { getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { txWaitMs } from "../runtime.js";
 import { claimOnChain, handleOfOnChain, registryEnabled, registryReadable, resolveOnChain } from "../mezo/registry.js";
-import { PRODUCTS, catalog, storeAddress } from "../mezo/market.js";
+import { PRODUCTS, catalog, marketItemUrl, storeAddress } from "../mezo/market.js";
 import { store, normalizeHandle, storedMap } from "../registry/store.js";
 import { createSession, verifyMessage, type Session } from "../web/sessions.js";
 import type { WebHooks } from "../web/server.js";
@@ -290,10 +290,10 @@ export function createBot() {
         if (rc.status !== "success") throw new Error("Transaction reverted");
         const h = await getTroveHealth(rc.from);
         store.log({ telegramId, kind: "market", counterparty: p?.name, ratio: h.ratio, tx: hash });
-        const claim = config.network === "testnet" ? "testnet.mezo.org/market" : "mezo.org/market";
         await bot.api.sendMessage(telegramId,
           `✓ Purchased: ${p?.name ?? `product ${productId}`}\nRatio at time: ${fmtRatio(h.ratio)}\nTx: ${txUrl(hash)}\n\n` +
-          `Your redemption code is issued by Mezo. Mezo doesn't offer a public way for apps to fetch it yet, so open ${claim} on a computer, sign in with this same wallet and open the item to reveal your code, then redeem it at ${p?.redeem ?? "the provider"}.`);
+          `🎁 Reveal your code: open the item on Mezo Market (best on a computer), sign in with this same wallet, and your code appears there. Then redeem it at ${p?.redeem ?? "the provider"}.`,
+          { reply_markup: p ? new InlineKeyboard().url("Reveal my code on Mezo Market", marketItemUrl(p)) : undefined });
       } catch (e) { await bot.api.sendMessage(telegramId, `✗ Purchase didn't go through: ${(e as Error).message}\n${txUrl(hash)}`); }
     },
     async onTroveTx(telegramId, hash, action, amount) {
