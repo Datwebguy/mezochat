@@ -31,6 +31,28 @@
 
 ---
 
+## 🧪 Try it in 2 minutes (free, Mezo Testnet)
+
+Everything runs on **Mezo Testnet** with free test funds.
+
+1. Open **[@MezoChat_Bot](https://t.me/MezoChat_Bot)** and tap **Start**.
+2. Tap **✨ Create or import wallet in Telegram**, then **Create a new wallet**, and choose a PIN or passphrase. Claim a @handle when the bot asks.
+3. Send **`/faucet`**, copy your address, and get free test BTC from the Mezo faucet.
+4. Send **`/borrow`**, enter `1800` MUSD and tap **BTC for safe level**, then confirm with your PIN. Your MUSD arrives in seconds.
+5. Explore:
+   - `/balance` and `/health` for your wallet and loan
+   - `/send 5 to @datweb3guy` to pay someone by handle
+   - `/split 30 with @friend` to split a bill
+   - `/pay 10 to @friend on the 1st if ratio > 160` for a protected recurring payment
+   - `/buy` for Mezo Market, paid in MUSD
+   - `/giftcard test` for a gift card with the code delivered in chat
+   - `/loan` to add BTC, repay or close
+   - or just type *"send my friend 2 for coffee"*
+
+Built for the **Mezo Buildathon, Access & Distribution track**: MUSD everyday banking inside Telegram.
+
+---
+
 ## Why MezoChat
 
 MUSD is Bitcoin-backed money. MezoChat puts the whole everyday money loop where people already talk: **Telegram**.
