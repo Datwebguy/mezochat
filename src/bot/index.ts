@@ -7,7 +7,7 @@ import { labelFor, payFlow, pending, receipt, run, signButtons, type Button, typ
 import { config, web } from "../config.js";
 import { getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
 import { txWaitMs } from "../runtime.js";
-import { claimOnChain, registryEnabled } from "../mezo/registry.js";
+import { claimOnChain, handleOfOnChain, registryEnabled, registryReadable, resolveOnChain } from "../mezo/registry.js";
 import { PRODUCTS, catalog, storeAddress } from "../mezo/market.js";
 import { store, normalizeHandle, storedMap } from "../registry/store.js";
 import { createSession, verifyMessage, type Session } from "../web/sessions.js";
@@ -196,6 +196,12 @@ export function createBot() {
       return ctx.reply("Now claim a @handle (3-32 letters, numbers, underscore).");
     }
     if (step?.s === "handle") {
+      // A handle registered on Mezo to a different wallet can't be taken in the bot.
+      if (registryReadable()) {
+        const owner = await resolveOnChain(normalizeHandle(text)).catch(() => null);
+        if (owner && owner.toLowerCase() !== step.address.toLowerCase())
+          return ctx.reply(`@${normalizeHandle(text)} is registered on Mezo to another wallet. Pick a different handle.`);
+      }
       const res = store.register(id, text, step.address, step.verified);
       if (!res.ok) return ctx.reply(res.reason);
       store.setWallet(id, step.wallet ?? "external");
@@ -203,15 +209,18 @@ export function createBot() {
       const handle = normalizeHandle(text);
       await ctx.reply(`You're @${handle}. Try "balance", or tap Help.`, { reply_markup: MENU });
       if (step.verified && registryEnabled()) {
-        claimOnChain(handle, step.address as Address)
-          .then(h => ctx.reply(`⛓ @${handle} is now registered on Mezo: ${txUrl(h)}`))
-          .catch(e => console.error("registry claim failed", handle, (e as Error).message));
+        // Awaited (not fire-and-forget) so it completes on serverless hosts too.
+        try { const h = await claimOnChain(handle, step.address as Address); await ctx.reply(`⛓ @${handle} is now registered on Mezo: ${txUrl(h)}`); }
+        catch (e) { console.error("registry claim failed", handle, (e as Error).message); }
       }
       return;
     }
 
     const me = store.user(id);
-    if (!me) return startConnect(id);
+    if (!me) {
+      await ctx.reply("I don't have a wallet linked to your account yet.\n\nUsed MezoChat before? Tap the Wallet button and enter your PIN to reconnect; your @handle comes back automatically.");
+      return startConnect(id);
+    }
     store.setTgUsername(id, ctx.from.username);
     let input = text;
     if (text.startsWith("/")) {
@@ -239,8 +248,21 @@ export function createBot() {
       const u = store.user(telegramId);
       const kind = wallet === "mini" ? "MezoChat wallet" : "Wallet";
       if (u) { store.setAddress(telegramId, address, true, wallet); onboarding.delete(telegramId); await bot.api.sendMessage(telegramId, `✓ ${kind} ${address} linked and verified.`); return; }
+      // Returning user: restore the handle this wallet already holds on Mezo's on-chain registry.
+      const onChain = registryReadable() ? await handleOfOnChain(address as Address).catch(() => null) : null;
+      if (onChain) {
+        const holder = store.byHandle(onChain);
+        if (!holder || holder.telegramId === telegramId) {
+          const res = store.register(telegramId, onChain, address, true);
+          if (res.ok) {
+            store.setWallet(telegramId, wallet); onboarding.delete(telegramId);
+            await bot.api.sendMessage(telegramId, `✓ Welcome back, @${onChain}. Your wallet ${address} is linked, and your handle was restored from Mezo's on-chain registry.\nTry /balance or tap Help.`, { reply_markup: MENU });
+            return;
+          }
+        }
+      }
       onboarding.set(telegramId, { s: "handle", address, verified: true, wallet });
-      await bot.api.sendMessage(telegramId, `✓ ${kind} ${address} ${wallet === "mini" ? "created" : "verified"}.\nNow claim a @handle (3-32 letters, numbers, underscore).`);
+      await bot.api.sendMessage(telegramId, `✓ ${kind} ${address} ${wallet === "mini" ? "linked" : "verified"}.\nNow claim a @handle (3-32 letters, numbers, underscore).`);
     },
     async onBorrowed(telegramId, hash, coll, debt) {
       await bot.api.sendMessage(telegramId, `⏳ Borrow submitted: ${debt} MUSD against ${coll} BTC. Waiting for confirmation…`).catch(() => {});

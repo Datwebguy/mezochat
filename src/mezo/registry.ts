@@ -17,6 +17,13 @@ export async function claimOnChain(handle: string, owner: Address): Promise<Hash
   return wallet.writeContract({ address: registry.address as Address, abi, functionName: "claimFor", args: [handle, owner] });
 }
 
+/** The handle a wallet holds in the on-chain registry, if any. */
+export async function handleOfOnChain(owner: Address): Promise<string | null> {
+  if (!registry.address) return null;
+  const h = await publicClient.readContract({ address: registry.address as Address, abi, functionName: "handleOf", args: [owner] }) as string;
+  return h || null;
+}
+
 export async function resolveOnChain(handle: string): Promise<Address | null> {
   if (!registry.address) return null;
   const a = await publicClient.readContract({ address: registry.address as Address, abi, functionName: "resolve", args: [handle] }) as Address;
