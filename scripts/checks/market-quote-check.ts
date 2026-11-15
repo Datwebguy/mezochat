@@ -1,6 +1,6 @@
 // Live Mezo Market catalog + buy quotes. Usage: npx tsx scripts/market-quote-check.ts [buyer]
 import type { Address } from "viem";
-import { catalog, quoteBuy } from "../src/mezo/market.js";
+import { catalog, quoteBuy } from "../../src/mezo/market.js";
 
 const buyer = (process.argv[2] ?? "0x75A0C2d1Df51C07982De3Ff031E5232518676B19") as Address;
 console.log("Live catalog:");

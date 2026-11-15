@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 process.env.DATA_FILE = join(mkdtempSync(join(tmpdir(), "mz-gc-")), "db.json");
 process.env.TELEGRAM_BOT_TOKEN = "123:TEST"; process.env.BITREFILL_OWNER_HANDLE = "owner_demo";
-const { createBot } = await import("../src/bot/index.js");
-const { store } = await import("../src/registry/store.js");
+const { createBot } = await import("../../src/bot/index.js");
+const { store } = await import("../../src/registry/store.js");
 const { bot } = createBot();
 const out: { method: string; text?: string; buttons?: { text: string; data: string }[] }[] = [];
 bot.api.config.use(async (_prev, method, payload: any) => {

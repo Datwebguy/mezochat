@@ -7,8 +7,8 @@ import { join } from "node:path";
 
 process.env.PORT = "3986"; process.env.TELEGRAM_BOT_TOKEN = "123:TEST";
 process.env.DATA_FILE = join(mkdtempSync(join(tmpdir(), "mz-rl-")), "db.json");
-const { startServer } = await import("../src/web/server.js");
-const { miniBundle } = await import("../src/web/mini.js");
+const { startServer } = await import("../../src/web/server.js");
+const { miniBundle } = await import("../../src/web/mini.js");
 const { chromium } = createRequire(import.meta.url)("playwright");
 const fields: Record<string, string> = { auth_date: String(Math.floor(Date.now() / 1000)), user: JSON.stringify({ id: 5555, first_name: "T" }) };
 const dcs = Object.keys(fields).sort().map(k => `${k}=${fields[k]}`).join("\n");

@@ -8,8 +8,8 @@ import { join } from "node:path";
 
 process.env.PORT = "3991"; process.env.TELEGRAM_BOT_TOKEN = "123:TEST";
 process.env.DATA_FILE = join(mkdtempSync(join(tmpdir(), "mz-mkt-")), "db.json");
-const { startServer } = await import("../src/web/server.js");
-const { miniBundle } = await import("../src/web/mini.js");
+const { startServer } = await import("../../src/web/server.js");
+const { miniBundle } = await import("../../src/web/mini.js");
 const { chromium } = createRequire(import.meta.url)("playwright");
 const RICH = "0x52d033E64774F31A8B7562806aA5782CbbD29382";
 

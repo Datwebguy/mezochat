@@ -1,7 +1,7 @@
 // Finds the Mezo Store contract: the address in the Market bundle that answers getProductDetails(1001..1007).
 import { readFileSync } from "node:fs";
 import { formatUnits, type Address } from "viem";
-import { publicClient } from "../src/mezo/client.js";
+import { publicClient } from "../../src/mezo/client.js";
 const abi = [{ type: "function", name: "getProductDetails", stateMutability: "view", inputs: [{ name: "productId", type: "uint32" }],
   outputs: [{ type: "tuple", components: [{ name: "price", type: "uint96" }, { name: "stock", type: "uint16" }, { name: "perCustomerLimit", type: "uint8" }] }] }] as const;
 const all = readFileSync(process.argv[2], "utf8");

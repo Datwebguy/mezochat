@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://t.me/MezoChat_Bot"><b>▶ Open @MezoChat_Bot</b></a> ·
   <a href="PRODUCT.md"><b>What is MezoChat?</b></a> ·
+  <a href="https://youtu.be/TdT1MObPIOM"><b>Demo video</b></a> ·
   <a href="https://pay.mezochat.xyz/health">pay.mezochat.xyz</a> ·
   <a href="https://explorer.test.mezo.org/address/0xd5c172f90799670de5f05b7506f13d977eccc6b5">On-chain registry</a>
 </p>
@@ -22,6 +23,11 @@
   <img alt="Non-custodial" src="https://img.shields.io/badge/wallet-non--custodial-1a8f3c">
   <img alt="Telegram" src="https://img.shields.io/badge/Telegram-Bot%20%2B%20Mini%20App-229ED9">
   <img alt="Track" src="https://img.shields.io/badge/Mezo%20Buildathon-Access%20%26%20Distribution-7b3fe4">
+</p>
+
+<p align="center">
+  <a href="https://youtu.be/TdT1MObPIOM"><img src="docs/demo/thumbnail.png" width="720" alt="Watch the MezoChat demo"></a><br>
+  <a href="https://youtu.be/TdT1MObPIOM"><b>Watch the demo video</b></a>
 </p>
 
 <p align="center">
@@ -271,8 +277,10 @@ src/
   registry/    storage (local file or Vercel Blob)
   vercel.ts    Vercel function entry (webhook, cron, API)
 contracts/     HandleRegistry.sol + ABI
-scripts/       build, deploy and end-to-end checks
-docs/          screenshots and submission
+scripts/       build, deploy and end-to-end tests
+  checks/      focused checks for each feature
+video/         the demo video, built with Remotion
+docs/          screenshots, demo video and submission
 ```
 
 Product docs: [What is MezoChat?](PRODUCT.md) · [Architecture](ARCHITECTURE.md) · [Orders](ORDERS.md) · [Agent prompt](AGENTIC_PROMPT.md) · [Resources](RESOURCES.md)
@@ -306,7 +314,7 @@ npm run vercel-build                  # Vercel build output
 ```bash
 E2E_KEY=0x… npx tsx scripts/real-e2e.ts out        # borrow → add BTC → Mezo Market → repay
 E2E_KEY=0x… npx tsx scripts/real-pay-e2e.ts 0x… 5   # Telegram wallet payment
-npx tsx scripts/market-quote-check.ts                # live Mezo Market catalog
+npx tsx scripts/checks/market-quote-check.ts               # live Mezo Market catalog
 ```
 
 ---

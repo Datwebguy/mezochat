@@ -6,8 +6,8 @@ import { join } from "node:path";
 process.env.DATA_FILE = join(mkdtempSync(join(tmpdir(), "mz-gp-")), "db.json");
 process.env.TELEGRAM_BOT_TOKEN = "123:TEST"; process.env.PUBLIC_URL = "https://pay.mezochat.xyz";
 process.env.GIFT_PAID = "1"; process.env.GIFT_TREASURY = "0x75A0C2d1Df51C07982De3Ff031E5232518676B19"; process.env.BITREFILL_OWNER_HANDLE = "operator";
-const { createBot } = await import("../src/bot/index.js");
-const { store } = await import("../src/registry/store.js");
+const { createBot } = await import("../../src/bot/index.js");
+const { store } = await import("../../src/registry/store.js");
 const { bot, hooks } = createBot();
 const out: { text?: string; buttons: { text: string; data?: string; url?: string }[] }[] = [];
 bot.api.config.use(async (_prev, method, payload: any) => {

@@ -1,9 +1,9 @@
 // Dry-runs Trove actions (view/add/repay/close) for a real Trove owner on the configured network.
 // Usage: npx tsx scripts/trove-check.ts [owner]   (no owner: uses the first Trove in SortedTroves)
 import type { Address } from "viem";
-import { config } from "../src/config.js";
-import { publicClient } from "../src/mezo/client.js";
-import { quoteTrove } from "../src/mezo/trove.js";
+import { config } from "../../src/config.js";
+import { publicClient } from "../../src/mezo/client.js";
+import { quoteTrove } from "../../src/mezo/trove.js";
 
 const firstAbi = [{ type: "function", name: "getFirst", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] }] as const;
 const owner = (process.argv[2] ?? await publicClient.readContract({ address: config.chain.sortedTroves as Address, abi: firstAbi, functionName: "getFirst" })) as Address;

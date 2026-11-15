@@ -9,7 +9,7 @@ process.env.TELEGRAM_WEBHOOK_SECRET = "hook-secret";
 process.env.CRON_SECRET = "cron-secret";
 process.env.PUBLIC_URL = "https://pay.mezochat.xyz";
 process.env.DATA_FILE = join(mkdtempSync(join(tmpdir(), "mz-vb-")), "db.json");
-const { default: handler } = await import(new URL("../.vercel/output/functions/index.func/index.mjs", import.meta.url));
+const { default: handler } = await import(new URL("../../.vercel/output/functions/index.func/index.mjs", import.meta.url));
 const srv = createServer(handler).listen(3988);
 const base = "http://127.0.0.1:3988";
 const check = async (label, path, init, expect) => {

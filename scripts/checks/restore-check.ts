@@ -5,8 +5,8 @@ import { join } from "node:path";
 process.env.DATA_FILE = join(mkdtempSync(join(tmpdir(), "mz-rs-")), "db.json");
 process.env.TELEGRAM_BOT_TOKEN = "123:TEST"; process.env.MEZO_NETWORK = "testnet";
 process.env.REGISTRY_ADDRESS ??= "0xd5c172f90799670de5f05b7506f13d977eccc6b5";
-const { createBot } = await import("../src/bot/index.js");
-const { store } = await import("../src/registry/store.js");
+const { createBot } = await import("../../src/bot/index.js");
+const { store } = await import("../../src/registry/store.js");
 const { bot, hooks } = createBot();
 const sent: string[] = [];
 bot.api.config.use(async (_prev, method, payload: any) => {     // capture instead of calling Telegram

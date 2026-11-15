@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, Img, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig, Easing, delayRender, continueRender } from "remotion";
 import timeline from "./timeline.json";
+import promoTimeline from "./promo.json";
 
 const fontFamily = "InterV";
 if (typeof document !== "undefined") {
@@ -12,9 +13,11 @@ export const FPS = 30;
 const PAD = 0.8;
 type Word = { w: string; s: number; e: number };
 type Scene = { id: string; text: string; words: Word[]; dur: number; from: number; frames: number };
-const scenes: Scene[] = [];
-{ let at = 0; for (const s of timeline as any[]) { const frames = Math.ceil((s.dur + PAD) * FPS); scenes.push({ ...s, from: at, frames }); at += frames; } }
+const build = (tl: any[]): Scene[] => { const out: Scene[] = []; let at = 0; for (const s of tl) { const frames = Math.ceil((s.dur + PAD) * FPS); out.push({ ...s, from: at, frames }); at += frames; } return out; };
+const scenes = build(timeline as any[]);
+const promoScenes = build(promoTimeline as any[]);
 export const TOTAL_FRAMES = scenes.reduce((a, s) => a + s.frames, 0);
+export const PROMO_FRAMES = promoScenes.reduce((a, s) => a + s.frames, 0);
 
 const C = { bg: "#0d0705", o: "#ff5a1f", o2: "#ff8a4c", tx: "#fff4ec", mut: "#bfa898", line: "#3a2218", ok: "#4ade80", tg: "#17212b", tg2: "#0e1621", bub: "#182533", me: "#2b5278" };
 const ease = Easing.bezier(0.45, 0, 0.2, 1);
@@ -211,7 +214,7 @@ const Reveal: React.FC<{ at: number; children: React.ReactNode; style?: React.CS
 };
 
 const S: Record<string, (s: Scene) => { body: React.ReactNode; cur?: CurKey[] }> = {
-  intro: s => ({ body: <Center><Card><Chips items={[["MEZO BUILDATHON"], ["BUILT BY DATWEB3GUY", true]]} /><Logo /><Wordmark />
+  intro: s => ({ body: <Center><Card><Chips items={s.text.includes("I'm") ? [["MEZO BUILDATHON"], ["BUILT BY DATWEB3GUY", true]] : [["BUILT ON MEZO"], ["MUSD", true]]} /><Logo /><Wordmark />
     <Reveal at={W(s, "bank") - 0.3}><p style={{ fontSize: 40, color: "#ecd8ca", marginTop: 24 }}>A Bitcoin-backed bank, inside Telegram.</p></Reveal></Card></Center> }),
   idea: s => ({ body: <Center>{([["Hold Bitcoin.", 0.1, "#fff"], ["Spend dollars.", W(s, "dollars") - 0.3, C.o], ["All inside your chat.", W(s, "chat") - 0.4, "#fff"]] as const).map(([x, a, c]) =>
     <Reveal key={x} at={a}><div style={{ fontSize: 116, fontWeight: 900, letterSpacing: -3, lineHeight: 1.14, color: c }}>{x}</div></Reveal>)}</Center> }),
@@ -288,17 +291,17 @@ const S: Record<string, (s: Scene) => { body: React.ReactNode; cur?: CurKey[] }>
   },
   outro: s => ({ body: <Center><Card><Logo /><Wordmark /><p style={{ fontSize: 40, color: "#ecd8ca", margin: "24px 0 0" }}>Bitcoin-backed money, as easy as sending a message.</p>
     <Reveal at={W(s, "try") - 0.2}><div style={{ marginTop: 40, display: "inline-block", background: C.o, padding: "22px 54px", borderRadius: 999, fontSize: 44, fontWeight: 900 }}>t.me/MezoChat_Bot</div></Reveal>
-    <Reveal at={W(s, "bot")}><div style={{ marginTop: 34 }}><Chips items={[["BUILT BY DATWEB3GUY"]]} /></div></Reveal></Card></Center> }),
+    <Reveal at={W(s, "bot")}><div style={{ marginTop: 34 }}><Chips items={[[s.text.includes("Try it now on") ? "BUILT BY DATWEB3GUY" : "BUILT ON MEZO"]]} /></div></Reveal></Card></Center> }),
 };
 
-const SceneView: React.FC<{ s: Scene }> = ({ s }) => {
+const SceneView: React.FC<{ s: Scene; dir?: string }> = ({ s, dir = "voice" }) => {
   const f = useCurrentFrame();
   const { body, cur } = S[s.id](s);
   const fade = interpolate(f, [0, 8, s.frames - 8, s.frames], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <AbsoluteFill style={{ opacity: s.id === "intro" ? Math.min(1, interpolate(f, [s.frames - 8, s.frames], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })) : fade }}>
       {body}<Cursor path={cur} /><Captions s={s} />
-      <Audio src={staticFile(`voice/${s.id}.mp3`)} />
+      <Audio src={staticFile(`${dir}/${s.id}.mp3`)} />
     </AbsoluteFill>
   );
 };
@@ -327,5 +330,12 @@ export const Demo: React.FC = () => (
   <AbsoluteFill style={{ fontFamily, color: C.tx }}>
     <Background />
     {scenes.map(s => <Sequence key={s.id} from={s.from} durationInFrames={s.frames}><SceneView s={s} /></Sequence>)}
+  </AbsoluteFill>
+);
+
+export const Promo: React.FC = () => (
+  <AbsoluteFill style={{ fontFamily, color: C.tx }}>
+    <Background />
+    {promoScenes.map(s => <Sequence key={s.id} from={s.from} durationInFrames={s.frames}><SceneView s={s} dir="voice-promo" /></Sequence>)}
   </AbsoluteFill>
 );

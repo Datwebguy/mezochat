@@ -1,10 +1,10 @@
 // Mainnet readiness: gas price, cost estimates, relayer balance, contract reachability.
 // Usage: MEZO_NETWORK=mainnet npx tsx scripts/mainnet-check.ts
 import { formatEther, formatGwei, type Address } from "viem";
-import { config } from "../src/config.js";
-import { publicClient, getTroveHealth } from "../src/mezo/client.js";
-import { catalog } from "../src/mezo/market.js";
-import { quoteBorrow } from "../src/mezo/borrow.js";
+import { config } from "../../src/config.js";
+import { publicClient, getTroveHealth } from "../../src/mezo/client.js";
+import { catalog } from "../../src/mezo/market.js";
+import { quoteBorrow } from "../../src/mezo/borrow.js";
 
 const gp = await publicClient.getGasPrice();
 const relayer = "0xaac79Ae10Fb0632C23A6235F99Df39A6258090c0" as Address;

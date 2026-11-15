@@ -1,6 +1,6 @@
 // Prints live borrow quotes for a wallet. Usage: npx tsx scripts/quote-check.ts <address> [coll debt]...
 import type { Address } from "viem";
-import { quoteBorrow } from "../src/mezo/borrow.js";
+import { quoteBorrow } from "../../src/mezo/borrow.js";
 
 const [addr, ...rest] = process.argv.slice(2);
 const pairs = rest.length ? rest : ["0", "0", "0", "1800", "0.033", "1800", "0.05", "1800", "0.039", "1800", "0.039", "100"];
