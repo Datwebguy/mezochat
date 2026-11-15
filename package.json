@@ -12,9 +12,12 @@
     "start": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts"
+    "test": "tsx --test src/**/*.test.ts",
+    "vercel-build": "node scripts/build-vercel.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.9.0",
+    "@vercel/functions": "^3.11.3",
     "dotenv": "^16.4.5",
     "esbuild": "^0.24.2",
     "grammy": "^1.30.0",

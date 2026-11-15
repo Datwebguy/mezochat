@@ -1,9 +1,10 @@
-import { createServer, type IncomingMessage } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { getAddress, isAddress, isHash, parseEventLogs, parseUnits, verifyMessage as verifySig, type Address, type Hash } from "viem";
 import { config, web } from "../config.js";
 import { MUSD, buildTransfer, publicClient } from "../mezo/client.js";
 import { getSession, markDone, type Session } from "./sessions.js";
 import { page } from "./page.js";
+import { background, txWaitMs } from "../runtime.js";
 import { miniBundle, miniHtml } from "./mini.js";
 import { verifyInitData } from "./telegram.js";
 import { quoteBorrow } from "../mezo/borrow.js";
@@ -35,7 +36,7 @@ async function body(req: IncomingMessage): Promise<any> {
 
 /** Waits for the tx, then checks it really moved the expected MUSD to the expected recipient. */
 export async function confirmTransfer(hash: Hash, from: Address, to: Address, amount: string) {
-  const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: 10 * 60_000 });
+  const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: txWaitMs() });
   if (rc.status !== "success") return { ok: false, reason: "Transaction reverted." };
   const logs = parseEventLogs({ abi: transferEvent, logs: rc.logs.filter(l => l.address.toLowerCase() === MUSD.toLowerCase()) });
   const want = parseUnits(amount, 18);
@@ -43,9 +44,10 @@ export async function confirmTransfer(hash: Hash, from: Address, to: Address, am
   return hit ? { ok: true } : { ok: false, reason: "No matching MUSD transfer in that transaction." };
 }
 
-export function startServer(hooks: WebHooks) {
+/** The HTTP request handler, shared by the long-running server and the Vercel function. */
+export function createHandler(hooks: WebHooks) {
   const html = page({ ...config.chain, rpc: config.rpcUrl });
-  const server = createServer(async (req, res) => {
+  return async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", "http://x");
     const json = (code: number, data: unknown) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(data)); };
     try {
@@ -77,7 +79,7 @@ export function startServer(hooks: WebHooks) {
         if (!who) return json(401, { error: "Open this from the MezoChat bot in Telegram." });
         if (!isHash(b.txHash) || !Number.isInteger(b.productId)) return json(400, { error: "Bad request" });
         json(200, { ok: true });
-        hooks.onMarketTx?.(who.id, b.txHash, b.productId).catch(e => console.error("onMarketTx", e));
+        background(async () => { await hooks.onMarketTx?.(who.id, b.txHash, b.productId); });
         return;
       }
       if (req.method === "GET" && url.pathname === "/api/trove/quote") {
@@ -92,7 +94,7 @@ export function startServer(hooks: WebHooks) {
         if (!who) return json(401, { error: "Open this from the MezoChat bot in Telegram." });
         if (!isHash(b.txHash) || !["add", "repay", "close"].includes(b.action)) return json(400, { error: "Bad request" });
         json(200, { ok: true });
-        hooks.onTroveTx?.(who.id, b.txHash, b.action, String(b.amount ?? "")).catch(e => console.error("onTroveTx", e));
+        background(async () => { await hooks.onTroveTx?.(who.id, b.txHash, b.action, String(b.amount ?? "")); });
         return;
       }
       if (req.method === "POST" && url.pathname === "/api/mini/link") {
@@ -113,7 +115,7 @@ export function startServer(hooks: WebHooks) {
         if (!who) return json(401, { error: "Open this from the MezoChat bot in Telegram." });
         if (!isHash(b.txHash)) return json(400, { error: "Bad request" });
         json(200, { ok: true });
-        hooks.onBorrowed?.(who.id, b.txHash, String(b.coll ?? ""), String(b.debt ?? "")).catch(e => console.error("onBorrowed", e));
+        background(async () => { await hooks.onBorrowed?.(who.id, b.txHash, String(b.coll ?? ""), String(b.debt ?? "")); });
         return;
       }
       const st = url.pathname.match(/^\/api\/session\/([0-9a-f]{24})\/status$/);
@@ -150,13 +152,18 @@ export function startServer(hooks: WebHooks) {
         return json(400, { error: `Pay from your linked wallet ${expected}.` });
       markDone(s);
       json(200, { ok: true });
-      confirmTransfer(b.txHash, b.from, s.to as Address, s.amount)
-        .then(r => hooks.onPaid(s, b.txHash, r.ok, r.reason))
-        .catch(e => hooks.onPaid(s, b.txHash, false, (e as Error).message));
+      background(async () => {
+        try { const r = await confirmTransfer(b.txHash, b.from, s.to as Address, s.amount); await hooks.onPaid(s, b.txHash, r.ok, r.reason); }
+        catch (e) { await hooks.onPaid(s, b.txHash, false, (e as Error).message); }
+      });
     } catch (e) {
       if (!res.headersSent) json(500, { error: (e as Error).message });
     }
-  });
+  };
+}
+
+export function startServer(hooks: WebHooks) {
+  const server = createServer(createHandler(hooks));
   miniBundle().catch(e => console.error("mini app bundle failed", e)); // build at startup, not on first visit
   server.listen(web.port, () => console.log(`Web signer on :${web.port}${web.publicUrl ? " (" + web.publicUrl + ")" : " (set PUBLIC_URL to enable)"}`));
   return server;

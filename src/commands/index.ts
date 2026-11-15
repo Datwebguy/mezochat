@@ -2,7 +2,7 @@ import { isAddress, type Address } from "viem";
 import { ratioGate, fmtRatio } from "../agent/safety.js";
 import type { Order } from "../agent/parse.js";
 import { buildTransfer, getWallet, getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
-import { store, normalizeHandle, type User } from "../registry/store.js";
+import { store, normalizeHandle, storedMap, type User } from "../registry/store.js";
 import { config, web } from "../config.js";
 import { registryReadable, resolveOnChain } from "../mezo/registry.js";
 import { catalog, storeAddress } from "../mezo/market.js";
@@ -17,7 +17,7 @@ export interface Button { text: string; data?: string; url?: string; webApp?: st
 export interface Reply { text: string; buttons?: Button[]; notify?: { telegramId: number; text: string; buttons?: Button[] }[] }
 
 /** Short-lived confirmations (Telegram callback data is limited to 64 bytes). */
-export const pending = new Map<string, { to: Address; label: string; amount: string; owner: number }>();
+export const pending = storedMap<string, { to: Address; label: string; amount: string; owner: number }>("pending");
 const pid = () => Math.random().toString(36).slice(2, 10);
 
 const num = (x: string) => Number(x);

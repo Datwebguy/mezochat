@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readAsset } from "../assets.js";
 import { parseOrder, type Order } from "./parse.js";
 
 const KEY = process.env.OPENAI_API_KEY ?? "";
@@ -6,7 +6,7 @@ const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 export const aiEnabled = () => !!KEY;
 
 let persona = "";
-try { persona = readFileSync(new URL("../../AGENTIC_PROMPT.md", import.meta.url), "utf8"); } catch { /* optional */ }
+try { persona = readAsset("AGENTIC_PROMPT.md"); } catch { /* optional */ }
 
 const SYSTEM = `${persona}
 

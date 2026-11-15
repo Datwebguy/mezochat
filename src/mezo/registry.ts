@@ -1,10 +1,10 @@
-import { readFileSync } from "node:fs";
+import { readAsset } from "../assets.js";
 import { createWalletClient, http, type Address, type Hash } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { config, registry } from "../config.js";
 import { mezoChain, publicClient } from "./client.js";
 
-const { abi } = JSON.parse(readFileSync(new URL("../../contracts/HandleRegistry.json", import.meta.url), "utf8"));
+const { abi } = JSON.parse(readAsset("contracts/HandleRegistry.json"));
 
 export const registryEnabled = () => !!registry.address && !!registry.relayerKey;
 /** Reads only need the contract address. */

@@ -6,14 +6,15 @@ import { ratioGate, fmtRatio } from "../agent/safety.js";
 import { labelFor, payFlow, pending, receipt, run, signButtons, type Button, type Reply } from "../commands/index.js";
 import { config, web } from "../config.js";
 import { getTroveHealth, publicClient, txUrl } from "../mezo/client.js";
+import { txWaitMs } from "../runtime.js";
 import { claimOnChain, registryEnabled } from "../mezo/registry.js";
 import { PRODUCTS, catalog, storeAddress } from "../mezo/market.js";
-import { store, normalizeHandle } from "../registry/store.js";
+import { store, normalizeHandle, storedMap } from "../registry/store.js";
 import { createSession, verifyMessage, type Session } from "../web/sessions.js";
 import type { WebHooks } from "../web/server.js";
 
 type Step = { s: "address" } | { s: "handle"; address: string; verified: boolean; wallet?: "mini" | "external" };
-const onboarding = new Map<number, Step>();
+const onboarding = storedMap<number, Step>("onboarding");   // stored, so it survives between serverless requests
 
 const MENU = new Keyboard().text("Balance").text("Health").row().text("Activity").text("Help").resized().persistent();
 const HELP = `Things you can say:
@@ -243,7 +244,7 @@ export function createBot() {
     async onBorrowed(telegramId, hash, coll, debt) {
       await bot.api.sendMessage(telegramId, `⏳ Borrow submitted: ${debt} MUSD against ${coll} BTC. Waiting for confirmation…`).catch(() => {});
       try {
-        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: 10 * 60_000 });
+        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: txWaitMs() });
         if (rc.status !== "success") throw new Error("Transaction reverted");
         const h = await getTroveHealth(rc.from);
         store.log({ telegramId, kind: "borrow", amount: debt, counterparty: `${coll} BTC collateral`, ratio: h.ratio, tx: hash });
@@ -257,7 +258,7 @@ export function createBot() {
       const p = PRODUCTS.find(x => x.id === productId);
       await bot.api.sendMessage(telegramId, `⏳ Buying ${p?.name ?? "item"} on Mezo Market. Waiting for confirmation…`).catch(() => {});
       try {
-        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: 10 * 60_000 });
+        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: txWaitMs() });
         if (rc.status !== "success") throw new Error("Transaction reverted");
         const h = await getTroveHealth(rc.from);
         store.log({ telegramId, kind: "market", counterparty: p?.name, ratio: h.ratio, tx: hash });
@@ -271,7 +272,7 @@ export function createBot() {
       const what = action === "add" ? `Adding ${amount} BTC to your loan` : action === "repay" ? `Repaying ${amount} MUSD` : "Closing your loan";
       await bot.api.sendMessage(telegramId, `⏳ ${what}. Waiting for confirmation…`).catch(() => {});
       try {
-        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: 10 * 60_000 });
+        const rc = await publicClient.waitForTransactionReceipt({ hash, timeout: txWaitMs() });
         if (rc.status !== "success") throw new Error("Transaction reverted");
         const h = await getTroveHealth(rc.from);
         store.log({ telegramId, kind: `loan_${action}`, amount: action === "close" ? undefined : amount, ratio: h.ratio, tx: hash });
